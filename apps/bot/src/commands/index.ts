@@ -1,28 +1,13 @@
 export { startCommand } from './start';
+export { setProfileCommand, handleProfileUrl, setBotInstance as setProfileBotInstance } from './setProfile';
+export { claimCommand, handleClaimSelect, handleClaimCompleted, handleClaimCancel } from './claim';
+export { useCommand, handleUseSelect, handleUseTweetUrl } from './use';
+export { myStatusCommand, myStatsCommand } from './stats';
+export { giftInfoCommand, giftCommand, setGiftBotInstance } from './gift';
+export { gambleCommand, handleGamble } from './gamble';
+export { claimHistoryCommand, useHistoryCommand, viewClaimTweet, viewUseTweet } from './history';
 export {
-  setProfileCommand,
-  handleProfileUrl,
-  isAwaitingProfile,
-  clearAwaitingProfile,
-} from './setProfile';
-export {
-  claimCommand,
-  handleClaimCount,
-  handleTaskDone,
-  handleTaskSkip,
-  isAwaitingClaimCount,
-  clearAwaitingClaimCount,
-  hasActiveClaimSession,
-  sendNextTask,
-} from './claim';
-export { useCommand, handleUseCount, isAwaitingUseCount, clearAwaitingUse } from './use';
-export { statsCommand } from './stats';
-export {
-  pendingCommand,
-  approveCommand,
-  rejectCommand,
-  banCommand,
-  unbanCommand,
-  adminStatsCommand,
-  shamelistCommand,
+  pendingCommand, approveCommand, rejectCommand,
+  banCommand, unbanCommand, adminStatsCommand, shamelistCommand,
+  handleApprove, handleReject, setAdminBotInstance,
 } from './admin';

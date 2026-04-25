@@ -19,6 +19,8 @@ enum TaskStatus {
   IN_PROGRESS
   COMPLETED
   FLAGGED
+  EXPIRED
+  CANCELLED
 }
 
 model User {

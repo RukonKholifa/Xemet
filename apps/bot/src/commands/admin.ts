@@ -1,33 +1,51 @@
-import { Context } from 'telegraf';
+import { Context, Markup } from 'telegraf';
 import { prisma } from '@reply-society/db';
 import { messages } from '../messages';
 import { isAdmin } from '../config';
+import { Telegraf } from 'telegraf';
 
-async function requireAdmin(ctx: Context): Promise<boolean> {
+let botInstance: Telegraf | null = null;
+
+export function setAdminBotInstance(bot: Telegraf): void {
+  botInstance = bot;
+}
+
+function checkAdmin(ctx: Context): boolean {
   const telegramId = ctx.from?.id.toString();
   if (!telegramId || !isAdmin(telegramId)) {
-    await ctx.reply(messages.notAdmin);
+    ctx.reply(messages.notAdmin);
     return false;
   }
   return true;
 }
 
-function extractTarget(text: string): string | null {
-  const parts = text.split(/\s+/);
-  if (parts.length < 2) return null;
-  return parts[1].replace('@', '');
-}
-
 export async function pendingCommand(ctx: Context) {
   try {
-    if (!(await requireAdmin(ctx))) return;
+    if (!checkAdmin(ctx)) return;
 
     const users = await prisma.user.findMany({
       where: { status: 'PENDING' },
-      select: { telegramUsername: true, id: true },
+      orderBy: { createdAt: 'desc' },
     });
 
-    await ctx.reply(messages.pendingList(users), { parse_mode: 'Markdown' });
+    if (users.length === 0) {
+      await ctx.reply('✅ No users pending approval.');
+      return;
+    }
+
+    for (const user of users) {
+      const text =
+        `👤 @${user.telegramUsername || 'unknown'}\n` +
+        `🔗 ${user.xProfileUrl || 'no profile'}\n` +
+        `🆔 ${user.telegramId}`;
+
+      await ctx.reply(text, Markup.inlineKeyboard([
+        [
+          Markup.button.callback('✅ Approve', `admin_approve:${user.telegramId}`),
+          Markup.button.callback('❌ Reject', `admin_reject:${user.telegramId}`),
+        ],
+      ]));
+    }
   } catch (error) {
     console.error('Error in pending command:', error);
     await ctx.reply(messages.error);
@@ -36,23 +54,28 @@ export async function pendingCommand(ctx: Context) {
 
 export async function approveCommand(ctx: Context) {
   try {
-    if (!(await requireAdmin(ctx))) return;
+    if (!checkAdmin(ctx)) return;
 
-    const text = 'text' in (ctx.message || {}) ? (ctx.message as { text: string }).text : '';
-    const target = extractTarget(text);
-    if (!target) {
-      await ctx.reply('Usage: /approve <user_id or @username>');
+    const text = (ctx.message as { text?: string })?.text || '';
+    const targetId = text.replace(/^\/approve\s*/, '').trim();
+
+    if (!targetId) {
+      await ctx.reply('Usage: /approve <telegram_id>');
       return;
     }
 
-    const user = await prisma.user.findFirst({
-      where: {
-        OR: [{ id: target }, { telegramUsername: target }],
-      },
-    });
+    await handleApprove(ctx, targetId);
+  } catch (error) {
+    console.error('Error in approve command:', error);
+    await ctx.reply(messages.error);
+  }
+}
 
+export async function handleApprove(ctx: Context, targetTelegramId: string) {
+  try {
+    const user = await prisma.user.findUnique({ where: { telegramId: targetTelegramId } });
     if (!user) {
-      await ctx.reply(messages.userNotFound);
+      await ctx.reply(`User with Telegram ID ${targetTelegramId} not found.`);
       return;
     }
 
@@ -69,40 +92,45 @@ export async function approveCommand(ctx: Context) {
       },
     });
 
-    try {
-      await ctx.telegram.sendMessage(user.telegramId, messages.userApproved, {
-        parse_mode: 'Markdown',
-      });
-    } catch (err) {
-      console.error('Failed to notify user:', err);
-    }
+    await ctx.reply(`✅ @${user.telegramUsername || targetTelegramId} has been approved.`);
 
-    await ctx.reply(messages.actionSuccess('Approval', user.telegramUsername || user.id));
+    if (botInstance) {
+      try {
+        await botInstance.telegram.sendMessage(user.telegramId, messages.userApproved);
+      } catch (err) {
+        console.error('Failed to notify approved user:', err);
+      }
+    }
   } catch (error) {
-    console.error('Error in approve command:', error);
+    console.error('Error approving user:', error);
     await ctx.reply(messages.error);
   }
 }
 
 export async function rejectCommand(ctx: Context) {
   try {
-    if (!(await requireAdmin(ctx))) return;
+    if (!checkAdmin(ctx)) return;
 
-    const text = 'text' in (ctx.message || {}) ? (ctx.message as { text: string }).text : '';
-    const target = extractTarget(text);
-    if (!target) {
-      await ctx.reply('Usage: /reject <user_id or @username>');
+    const text = (ctx.message as { text?: string })?.text || '';
+    const targetId = text.replace(/^\/reject\s*/, '').trim();
+
+    if (!targetId) {
+      await ctx.reply('Usage: /reject <telegram_id>');
       return;
     }
 
-    const user = await prisma.user.findFirst({
-      where: {
-        OR: [{ id: target }, { telegramUsername: target }],
-      },
-    });
+    await handleReject(ctx, targetId);
+  } catch (error) {
+    console.error('Error in reject command:', error);
+    await ctx.reply(messages.error);
+  }
+}
 
+export async function handleReject(ctx: Context, targetTelegramId: string) {
+  try {
+    const user = await prisma.user.findUnique({ where: { telegramId: targetTelegramId } });
     if (!user) {
-      await ctx.reply(messages.userNotFound);
+      await ctx.reply(`User with Telegram ID ${targetTelegramId} not found.`);
       return;
     }
 
@@ -119,40 +147,36 @@ export async function rejectCommand(ctx: Context) {
       },
     });
 
-    try {
-      await ctx.telegram.sendMessage(user.telegramId, messages.userRejected, {
-        parse_mode: 'Markdown',
-      });
-    } catch (err) {
-      console.error('Failed to notify user:', err);
-    }
+    await ctx.reply(`❌ @${user.telegramUsername || targetTelegramId} has been rejected.`);
 
-    await ctx.reply(messages.actionSuccess('Rejection', user.telegramUsername || user.id));
+    if (botInstance) {
+      try {
+        await botInstance.telegram.sendMessage(user.telegramId, messages.userRejected);
+      } catch (err) {
+        console.error('Failed to notify rejected user:', err);
+      }
+    }
   } catch (error) {
-    console.error('Error in reject command:', error);
+    console.error('Error rejecting user:', error);
     await ctx.reply(messages.error);
   }
 }
 
 export async function banCommand(ctx: Context) {
   try {
-    if (!(await requireAdmin(ctx))) return;
+    if (!checkAdmin(ctx)) return;
 
-    const text = 'text' in (ctx.message || {}) ? (ctx.message as { text: string }).text : '';
-    const target = extractTarget(text);
-    if (!target) {
-      await ctx.reply('Usage: /ban <user_id or @username>');
+    const text = (ctx.message as { text?: string })?.text || '';
+    const targetId = text.replace(/^\/ban\s*/, '').trim();
+
+    if (!targetId) {
+      await ctx.reply('Usage: /ban <telegram_id>');
       return;
     }
 
-    const user = await prisma.user.findFirst({
-      where: {
-        OR: [{ id: target }, { telegramUsername: target }],
-      },
-    });
-
+    const user = await prisma.user.findUnique({ where: { telegramId: targetId } });
     if (!user) {
-      await ctx.reply(messages.userNotFound);
+      await ctx.reply(`User with Telegram ID ${targetId} not found.`);
       return;
     }
 
@@ -169,15 +193,15 @@ export async function banCommand(ctx: Context) {
       },
     });
 
-    try {
-      await ctx.telegram.sendMessage(user.telegramId, messages.userBanned, {
-        parse_mode: 'Markdown',
-      });
-    } catch (err) {
-      console.error('Failed to notify user:', err);
-    }
+    await ctx.reply(`🚫 @${user.telegramUsername || targetId} has been banned.`);
 
-    await ctx.reply(messages.actionSuccess('Ban', user.telegramUsername || user.id));
+    if (botInstance) {
+      try {
+        await botInstance.telegram.sendMessage(user.telegramId, messages.userBanned);
+      } catch (err) {
+        console.error('Failed to notify banned user:', err);
+      }
+    }
   } catch (error) {
     console.error('Error in ban command:', error);
     await ctx.reply(messages.error);
@@ -186,23 +210,19 @@ export async function banCommand(ctx: Context) {
 
 export async function unbanCommand(ctx: Context) {
   try {
-    if (!(await requireAdmin(ctx))) return;
+    if (!checkAdmin(ctx)) return;
 
-    const text = 'text' in (ctx.message || {}) ? (ctx.message as { text: string }).text : '';
-    const target = extractTarget(text);
-    if (!target) {
-      await ctx.reply('Usage: /unban <user_id or @username>');
+    const text = (ctx.message as { text?: string })?.text || '';
+    const targetId = text.replace(/^\/unban\s*/, '').trim();
+
+    if (!targetId) {
+      await ctx.reply('Usage: /unban <telegram_id>');
       return;
     }
 
-    const user = await prisma.user.findFirst({
-      where: {
-        OR: [{ id: target }, { telegramUsername: target }],
-      },
-    });
-
+    const user = await prisma.user.findUnique({ where: { telegramId: targetId } });
     if (!user) {
-      await ctx.reply(messages.userNotFound);
+      await ctx.reply(`User with Telegram ID ${targetId} not found.`);
       return;
     }
 
@@ -219,15 +239,15 @@ export async function unbanCommand(ctx: Context) {
       },
     });
 
-    try {
-      await ctx.telegram.sendMessage(user.telegramId, messages.userUnbanned, {
-        parse_mode: 'Markdown',
-      });
-    } catch (err) {
-      console.error('Failed to notify user:', err);
-    }
+    await ctx.reply(`✅ @${user.telegramUsername || targetId} has been unbanned.`);
 
-    await ctx.reply(messages.actionSuccess('Unban', user.telegramUsername || user.id));
+    if (botInstance) {
+      try {
+        await botInstance.telegram.sendMessage(user.telegramId, messages.userUnbanned);
+      } catch (err) {
+        console.error('Failed to notify unbanned user:', err);
+      }
+    }
   } catch (error) {
     console.error('Error in unban command:', error);
     await ctx.reply(messages.error);
@@ -236,31 +256,33 @@ export async function unbanCommand(ctx: Context) {
 
 export async function adminStatsCommand(ctx: Context) {
   try {
-    if (!(await requireAdmin(ctx))) return;
+    if (!checkAdmin(ctx)) return;
 
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    const [totalUsers, totalPoints, activeUsers, pendingUsers] = await Promise.all([
-      prisma.user.count(),
-      prisma.user.aggregate({ _sum: { points: true } }),
-      prisma.user.count({
-        where: { lastActivity: { gte: sevenDaysAgo } },
-      }),
-      prisma.user.count({
-        where: { status: 'PENDING' },
-      }),
-    ]);
+    const [totalUsers, approved, pending, banned, totalPointsResult, activeTweets, tasksToday] =
+      await Promise.all([
+        prisma.user.count(),
+        prisma.user.count({ where: { status: 'APPROVED' } }),
+        prisma.user.count({ where: { status: 'PENDING' } }),
+        prisma.user.count({ where: { status: 'BANNED' } }),
+        prisma.user.aggregate({ _sum: { points: true } }),
+        prisma.tweet.count({ where: { isComplete: false } }),
+        prisma.task.count({ where: { status: 'COMPLETED', completedAt: { gte: today } } }),
+      ]);
 
-    await ctx.reply(
-      messages.adminStats(
-        totalUsers,
-        totalPoints._sum.points || 0,
-        activeUsers,
-        pendingUsers,
-      ),
-      { parse_mode: 'Markdown' },
-    );
+    const text = messages.adminStats({
+      totalUsers,
+      approved,
+      pending,
+      banned,
+      totalPoints: totalPointsResult._sum.points || 0,
+      activeTweets,
+      tasksToday,
+    });
+
+    await ctx.reply(text);
   } catch (error) {
     console.error('Error in admin stats command:', error);
     await ctx.reply(messages.error);
@@ -269,29 +291,36 @@ export async function adminStatsCommand(ctx: Context) {
 
 export async function shamelistCommand(ctx: Context) {
   try {
-    if (!(await requireAdmin(ctx))) return;
+    if (!checkAdmin(ctx)) return;
 
     const flaggedTasks = await prisma.task.groupBy({
       by: ['claimerUserId'],
       where: { status: 'FLAGGED' },
       _count: { id: true },
+      orderBy: { _count: { id: 'desc' } },
     });
 
+    if (flaggedTasks.length === 0) {
+      await ctx.reply('✅ No flagged users.');
+      return;
+    }
+
     const users = await Promise.all(
-      flaggedTasks.map(async (ft) => {
+      flaggedTasks.map(async (entry) => {
         const user = await prisma.user.findUnique({
-          where: { id: ft.claimerUserId },
-          select: { telegramUsername: true, id: true },
+          where: { id: entry.claimerUserId },
+          select: { telegramUsername: true, telegramId: true },
         });
         return {
           telegramUsername: user?.telegramUsername || null,
-          id: user?.id || ft.claimerUserId,
-          flagCount: ft._count.id,
+          telegramId: user?.telegramId || 'unknown',
+          flagCount: entry._count.id,
         };
       }),
     );
 
-    await ctx.reply(messages.shameList(users), { parse_mode: 'Markdown' });
+    const text = messages.shameList(users);
+    await ctx.reply(text);
   } catch (error) {
     console.error('Error in shamelist command:', error);
     await ctx.reply(messages.error);

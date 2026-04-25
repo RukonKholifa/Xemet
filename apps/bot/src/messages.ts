@@ -1,135 +1,256 @@
 export const messages = {
-  welcome: (username: string, points: number, status: string) =>
-    `🏆 *Reply Society Champs Bot*\n\n` +
-    `👤 Username: @${username}\n` +
-    `💰 Points: ${points}/50\n` +
-    `📋 Status: ${status}\n\n` +
-    `Use the buttons below to navigate:`,
+  homeDashboard: (
+    balance: number,
+    status: string,
+    activeTweets: Array<{ tweetUrl: string; filledSlots: number; totalSlots: number }>,
+  ) => {
+    const statusIcon =
+      status === 'APPROVED' ? '✅ Active' :
+      status === 'PENDING' ? '⏳ Pending' :
+      status === 'REJECTED' ? '❌ Rejected' :
+      status === 'BANNED' ? '🚫 Banned' :
+      status === 'INACTIVE' ? '💤 Inactive' : status;
+
+    let text =
+      `👋 Welcome to EngageSwapBot!\n\n` +
+      `💎 Points: ${balance}\n` +
+      `📗 Status: ${statusIcon}\n\n` +
+      `🚀 Mission: Earn points by engaging on X (Twitter).\n` +
+      `Keeping your profile active helps the army grow!`;
+
+    if (activeTweets.length > 0) {
+      text += `\n\n📋 Your Active Tweets:`;
+      for (const t of activeTweets) {
+        const short = t.tweetUrl.length > 40 ? t.tweetUrl.slice(0, 40) + '...' : t.tweetUrl;
+        text += `\n- ${short} (${t.filledSlots}/${t.totalSlots})`;
+      }
+    }
+
+    text += `\n\n👇 Choose an action below:`;
+    return text;
+  },
 
   welcomeNew:
-    `🏆 Welcome to *Reply Society Champs Bot*!\n\n` +
+    `👋 Welcome to EngageSwapBot!\n\n` +
     `This is a Twitter/X engagement exchange system.\n` +
     `• Earn points by engaging with others' tweets\n` +
     `• Spend points to get engagements on your tweets\n\n` +
     `Start by setting your X profile using the button below.`,
 
-  setProfilePrompt: `📝 Please send your X (Twitter) profile URL.\n\nAccepted formats:\n• https://x.com/yourhandle\n• https://twitter.com/yourhandle`,
+  claimPromptButtons: (balance: number) =>
+    `💰 Claim Points\n💎 Current Balance: ${balance}\nSelect an amount to add to your balance:`,
+
+  claimMission: (n: number, urls: string[]) => {
+    let text = `🚀 Reply Mission: ${n} Tweets\n⏳ You have 4h 0m to complete this task.\nPlease reply to the following tweets:\n`;
+    urls.forEach((url, i) => {
+      text += `\n${i + 1}) ${url}`;
+    });
+    text += `\n\n👇 Press 'Completed' ONLY after you have replied to all!`;
+    return text;
+  },
+
+  claimCompleted: `🎉 Mission Completed!\nPoints have been added to your balance.`,
+
+  claimCancelled: `Task cancelled. No points awarded.`,
+
+  claimExpired: `⏰ Your claim mission expired. No points awarded.`,
+
+  claimNoTweets: `😕 No engagement tasks available right now. Check back later!`,
+
+  claimAlreadyInProgress: `⚠️ You already have tasks in progress. Complete them first!`,
+
+  usePromptButtons: (balance: number) =>
+    `💸 Use Points\n💎 Current Balance: ${balance}\nSelect an amount to spend:\n\n` +
+    `💡 You can spend multiple points on the same tweet. ` +
+    `The system will recognize it and won't show the same tweet to the same user twice.`,
+
+  useTweetPrompt: (n: number) =>
+    `💸 Spending ${n} Points\n` +
+    `Please send the X (Twitter) Link of the tweet you want to promote.\n` +
+    `Example: https://x.com/username/status/123456789`,
+
+  useSuccess: (n: number) =>
+    `✅ Tweet Promoted!\n` +
+    `Points spent: ${n}\n` +
+    `Your tweet is now in the pool. Others will reply to it soon!`,
+
+  useTweetInvalid: `❌ Invalid tweet URL. Please send a valid Twitter/X tweet URL.\nExample: https://x.com/username/status/123456789`,
+
+  useInsufficientPoints: (current: number) =>
+    `❌ Insufficient points. You have ${current} points.`,
+
+  myStatus: (
+    name: string,
+    username: string | null,
+    xProfileUrl: string | null,
+    balance: number,
+    status: string,
+  ) => {
+    const statusText =
+      status === 'APPROVED' ? '✅ Authorized' :
+      status === 'PENDING' ? '⏳ Pending' :
+      status === 'REJECTED' ? '❌ Rejected' :
+      status === 'BANNED' ? '🚫 Banned' :
+      status === 'INACTIVE' ? '💤 Inactive' : status;
+
+    return (
+      `📊 Your Commander Profile\n\n` +
+      `👤 Name: ${name}\n` +
+      `🪪 Username: @${username || 'not set'}\n` +
+      `🔗 X Profile: ${xProfileUrl || 'not linked'}\n\n` +
+      `💰 Balance: ${balance} Points\n` +
+      `🛡️ Approval: ${statusText}`
+    );
+  },
+
+  myStats: (
+    weekly: { engagements: number; earned: number; spent: number },
+    allTime: {
+      engagements: number;
+      earned: number;
+      spent: number;
+      completed: number;
+      cancelled: number;
+      expired: number;
+    },
+    balance: number,
+  ) =>
+    `📈 My Stats\n\n` +
+    `🗓️ Last 7 Days:\n` +
+    `└ 🤝 Engagements: ${weekly.engagements}\n` +
+    `└ + Points Earned: ${weekly.earned}\n` +
+    `└ — Points Spent: ${weekly.spent}\n\n` +
+    `📊 All Time:\n` +
+    `└ 🤝 Engagements: ${allTime.engagements}\n` +
+    `└ + Points Earned: ${allTime.earned}\n` +
+    `└ — Points Spent: ${allTime.spent}\n` +
+    `└ ✅ Missions Completed: ${allTime.completed}\n` +
+    `└ ❌ Missions Cancelled: ${allTime.cancelled}\n` +
+    `└ ⏰ Missions Expired: ${allTime.expired}\n\n` +
+    `💎 Current Balance: ${balance}`,
+
+  giftInfo: (balance: number) =>
+    `🎁 Gift Points\nSend points to another member!\n\n` +
+    `📋 How to use:\n/gift @telegramUsername {points} {message}\n\n` +
+    `📌 Examples:\n/gift @john 5 Thanks for the help!\n/gift @alice 10 Great work this week\n\n` +
+    `⚠️ Rules:\n` +
+    `- You must have enough points in your balance\n` +
+    `- You cannot gift points to yourself\n` +
+    `- The recipient must be a registered member\n` +
+    `- Gifts cannot be undone once confirmed\n\n` +
+    `💎 Your current balance: ${balance}`,
+
+  giftSuccess: (amount: number, recipient: string) =>
+    `✅ Gift sent! ${amount} points transferred to @${recipient}.`,
+
+  giftReceived: (amount: number, sender: string, message: string) =>
+    `🎁 You received ${amount} points from @${sender}!${message ? ` Message: ${message}` : ''}`,
+
+  giftSelfError: `❌ You cannot gift points to yourself.`,
+
+  giftNotFoundError: `❌ Recipient not found. They must be a registered member.`,
+
+  giftNotApprovedError: `❌ Recipient is not an approved member.`,
+
+  giftInsufficientPoints: `❌ You don't have enough points for this gift.`,
+
+  giftUsage: `❌ Usage: /gift @username amount message\nExample: /gift @john 5 Thanks!`,
+
+  gamblePrompt: (balance: number) =>
+    `🎲 Point Gamble\n💎 Current Balance: ${balance}\n\n` +
+    `Test your luck! Each play costs 1 point.\nChoose your risk level below:`,
+
+  gambleWin: (n: number) =>
+    `🎉 You won! +${n} points added to your balance!`,
+
+  gambleLose: `😔 Better luck next time! -1 point`,
+
+  gambleNoPoints: `❌ Not enough points to gamble. You need at least 1 point.`,
+
+  setProfilePrompt:
+    `🔗 Link your X Profile\n` +
+    `Please reply with your X (Twitter) profile URL.\n` +
+    `Example: https://x.com/elonmusk`,
 
   profileSet: (url: string) =>
-    `✅ Profile set to: ${url}\n\nYour account is now *PENDING REVIEW*. An admin will review your profile shortly.`,
+    `✅ Profile saved! Waiting for admin approval.`,
 
-  profileInvalid: `❌ Invalid URL format. Please send a valid X/Twitter profile URL:\n• https://x.com/yourhandle\n• https://twitter.com/yourhandle`,
-
-  adminNewUser: (username: string, url: string, userId: string) =>
-    `🆕 New user awaiting approval:\n\n` +
-    `👤 @${username}\n` +
-    `🔗 ${url}\n` +
-    `🆔 ID: ${userId}\n\n` +
-    `Use /approve ${userId} or /reject ${userId}`,
-
-  userApproved: `🎉 Your account has been *APPROVED*! You can now claim and use points.\n\nUse /claim to start earning points or /use to spend them.`,
-
-  userRejected: `❌ Your account has been *REJECTED*. Please contact an admin if you believe this is an error.`,
-
-  userBanned: `🚫 Your account has been *BANNED*. You can no longer use this bot.`,
-
-  userUnbanned: `✅ Your account has been *UNBANNED*. You can use the bot again.`,
+  profileInvalid:
+    `❌ Invalid URL format. Please send a valid X/Twitter profile URL:\n` +
+    `• https://x.com/yourhandle\n• https://twitter.com/yourhandle`,
 
   notApproved: `⚠️ Your account has not been approved yet. Please wait for admin review.`,
 
   alreadyBanned: `🚫 You are banned from using this bot.`,
 
-  claimPrompt: (maxClaim: number) =>
-    `📥 How many points do you want to claim?\n\nYou can claim up to *${maxClaim}* points.\n\nSend a number:`,
+  noProfile: `⚠️ You haven't set your X profile yet. Use the Set X Profile button to get started.`,
 
-  claimNoSlots: `😕 No engagement tasks available right now. Check back later!`,
+  adminNewUser: (username: string, url: string, telegramId: string) =>
+    `🆕 New user awaiting approval:\n\n` +
+    `👤 @${username}\n` +
+    `🔗 ${url}\n` +
+    `🆔 Telegram ID: ${telegramId}\n\n` +
+    `Use /approve ${telegramId} or /reject ${telegramId}`,
 
-  claimTask: (tweetUrl: string, current: number, total: number) =>
-    `📋 Task ${current}/${total}\n\n` +
-    `🔗 ${tweetUrl}\n\n` +
-    `Please engage with this tweet (like, reply, or repost), then tap ✅ Done.`,
+  userApproved: `✅ Account Approved! You can now use /claim and /use.`,
 
-  claimComplete: (points: number) =>
-    `🎉 All tasks completed! You earned *${points}* points.\n\nYour new balance will be updated shortly.`,
+  userRejected: `❌ Your account has been REJECTED. Please contact an admin if you believe this is an error.`,
 
-  claimAlreadyInProgress: `⚠️ You already have tasks in progress. Complete them first!`,
+  userBanned: `🚫 Your account has been BANNED. You can no longer use this bot.`,
 
-  usePrompt: `📤 How many points do you want to spend?\n\nSend a number:`,
+  userUnbanned: `✅ Your account has been UNBANNED. You can use the bot again.`,
 
-  useTweetPrompt: `📎 Now send the tweet URL you want to promote:`,
+  adminStats: (stats: {
+    totalUsers: number;
+    approved: number;
+    pending: number;
+    banned: number;
+    totalPoints: number;
+    activeTweets: number;
+    tasksToday: number;
+  }) =>
+    `📊 Admin Stats\n\n` +
+    `Total Users: ${stats.totalUsers}\n` +
+    `Approved: ${stats.approved}\n` +
+    `Pending: ${stats.pending}\n` +
+    `Banned: ${stats.banned}\n` +
+    `Total Points in Circulation: ${stats.totalPoints}\n` +
+    `Active Tweets in Queue: ${stats.activeTweets}\n` +
+    `Tasks Completed Today: ${stats.tasksToday}`,
 
-  useTweetInvalid: `❌ Invalid tweet URL. Please send a valid Twitter/X tweet URL.`,
+  pendingList: (users: Array<{ telegramUsername: string | null; telegramId: string; xProfileUrl: string | null }>) => {
+    if (users.length === 0) return '✅ No users pending approval.';
+    const list = users
+      .map((u) => `• @${u.telegramUsername || 'unknown'} — ${u.xProfileUrl || 'no profile'}`)
+      .join('\n');
+    return `📋 Pending Users:\n\n${list}`;
+  },
 
-  useSuccess: (points: number, tweetUrl: string) =>
-    `✅ Success! Spent *${points}* points.\n\n` +
-    `Tweet: ${tweetUrl}\n\n` +
-    `You'll be notified as others engage with your tweet.`,
+  shameList: (users: Array<{ telegramUsername: string | null; telegramId: string; flagCount: number }>) => {
+    if (users.length === 0) return '✅ No flagged users.';
+    const list = users
+      .map((u) => `• @${u.telegramUsername || 'unknown'} — ${u.flagCount} flagged tasks — /ban ${u.telegramId}`)
+      .join('\n');
+    return `🚩 Shame List (Flagged Users):\n\n${list}`;
+  },
 
-  useInsufficientPoints: (current: number) =>
-    `❌ Insufficient points. You have *${current}* points.`,
+  rateLimited: (minutes: number) =>
+    `⏳ You're doing that too fast! Please wait ${minutes} minutes before trying again.`,
+
+  invalidNumber: `❌ Please send a valid number.`,
+
+  numberTooHigh: (max: number) => `❌ Maximum allowed is ${max}.`,
+
+  numberTooLow: `❌ Please enter a number greater than 0.`,
+
+  error: `❌ An error occurred. Please try again later.`,
+
+  inactiveNotice: `⚠️ You were removed for inactivity. Start the bot again to reactivate.`,
 
   engagementNotification: (tweetUrl: string, engagerUsername: string) =>
     `🔔 Someone engaged with your tweet!\n\n` +
     `🔗 ${tweetUrl}\n` +
     `👤 @${engagerUsername}`,
 
-  rateLimited: (minutes: number) =>
-    `⏳ You're doing that too fast! Please wait *${minutes}* minutes before trying again.`,
-
-  noProfile: `⚠️ You haven't set your X profile yet. Use /setprofile to get started.`,
-
-  invalidNumber: `❌ Please send a valid number.`,
-
-  numberTooHigh: (max: number) => `❌ Maximum allowed is *${max}*.`,
-
-  numberTooLow: `❌ Please enter a number greater than 0.`,
-
-  statsUser: (
-    totalEngagementsGiven: number,
-    totalEngagementsReceived: number,
-    points: number,
-  ) =>
-    `📊 *Your Stats*\n\n` +
-    `✅ Engagements Given: ${totalEngagementsGiven}\n` +
-    `📥 Engagements Received: ${totalEngagementsReceived}\n` +
-    `💰 Current Points: ${points}/50`,
-
-  adminStats: (
-    totalUsers: number,
-    totalPoints: number,
-    activeUsers: number,
-    pendingUsers: number,
-  ) =>
-    `📊 *Bot Statistics*\n\n` +
-    `👥 Total Users: ${totalUsers}\n` +
-    `💰 Total Points Distributed: ${totalPoints}\n` +
-    `🟢 Active Users (7d): ${activeUsers}\n` +
-    `⏳ Pending Approval: ${pendingUsers}`,
-
-  pendingList: (users: Array<{ telegramUsername: string | null; id: string }>) => {
-    if (users.length === 0) return '✅ No users pending approval.';
-    const list = users
-      .map((u) => `• @${u.telegramUsername || 'unknown'} — /approve ${u.id}`)
-      .join('\n');
-    return `📋 *Pending Users:*\n\n${list}`;
-  },
-
-  shameList: (users: Array<{ telegramUsername: string | null; id: string; flagCount: number }>) => {
-    if (users.length === 0) return '✅ No flagged users.';
-    const list = users
-      .map((u) => `• @${u.telegramUsername || 'unknown'} — ${u.flagCount} flagged tasks — /ban ${u.id}`)
-      .join('\n');
-    return `🚩 *Shame List (Flagged Users):*\n\n${list}`;
-  },
-
-  inactiveNotice: `⚠️ You've been marked as *INACTIVE* due to no activity in the past 7 days. Use /start to reactivate.`,
-
-  error: `❌ Something went wrong. Please try again later.`,
-
-  notAdmin: `⚠️ This command is only available to admins.`,
-
-  userNotFound: `❌ User not found.`,
-
-  actionSuccess: (action: string, target: string) =>
-    `✅ ${action} successful for user ${target}.`,
+  notAdmin: `❌ You are not authorized to use admin commands.`,
 };

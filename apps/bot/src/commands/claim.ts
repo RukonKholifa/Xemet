@@ -1,26 +1,34 @@
 import { Context, Markup } from 'telegraf';
 import { prisma } from '@reply-society/db';
 import { messages } from '../messages';
-import { parseNumber } from '../utils/validation';
 import { config } from '../config';
 import { checkRateLimit, setRateLimit } from '../middleware/rateLimit';
+import {
+  clearAllFlows, setFlow, isInFlow,
+  setClaimSession, getClaimSession, clearClaimSession,
+} from '../state';
 
-const awaitingClaimCount = new Set<string>();
-const activeClaimSessions = new Map<
-  string,
-  { tasks: Array<{ id: string; tweetUrl: string }>; currentIndex: number }
->();
+const CLAIM_AMOUNTS = [1, 5, 10, 15, 20, 25];
+const CLAIM_TIMEOUT_MS = 4 * 60 * 60 * 1000;
 
-export function isAwaitingClaimCount(telegramId: string): boolean {
-  return awaitingClaimCount.has(telegramId);
-}
+async function getOrRejectUser(ctx: Context): Promise<{ id: string; points: number; telegramId: string } | null> {
+  const telegramId = ctx.from?.id.toString();
+  if (!telegramId) return null;
 
-export function clearAwaitingClaimCount(telegramId: string): void {
-  awaitingClaimCount.delete(telegramId);
-}
-
-export function hasActiveClaimSession(telegramId: string): boolean {
-  return activeClaimSessions.has(telegramId);
+  const user = await prisma.user.findUnique({ where: { telegramId } });
+  if (!user) {
+    await ctx.reply(messages.notApproved);
+    return null;
+  }
+  if (user.status === 'BANNED') {
+    await ctx.reply(messages.alreadyBanned);
+    return null;
+  }
+  if (user.status !== 'APPROVED') {
+    await ctx.reply(messages.notApproved);
+    return null;
+  }
+  return user;
 }
 
 export async function claimCommand(ctx: Context) {
@@ -28,223 +36,215 @@ export async function claimCommand(ctx: Context) {
     const telegramId = ctx.from?.id.toString();
     if (!telegramId) return;
 
-    const user = await prisma.user.findUnique({ where: { telegramId } });
-    if (!user) {
-      await ctx.reply(messages.notApproved, { parse_mode: 'Markdown' });
-      return;
-    }
-
-    if (user.status === 'BANNED') {
-      await ctx.reply(messages.alreadyBanned);
-      return;
-    }
-
-    if (user.status !== 'APPROVED') {
-      await ctx.reply(messages.notApproved, { parse_mode: 'Markdown' });
-      return;
-    }
+    const user = await getOrRejectUser(ctx);
+    if (!user) return;
 
     if (!(await checkRateLimit(ctx, 'claim'))) return;
 
-    if (activeClaimSessions.has(telegramId)) {
+    if (getClaimSession(telegramId)) {
       await ctx.reply(messages.claimAlreadyInProgress);
       return;
     }
 
+    clearAllFlows(telegramId);
+
     const maxClaim = config.maxPoints - user.points;
     if (maxClaim <= 0) {
-      await ctx.reply(messages.numberTooHigh(0), { parse_mode: 'Markdown' });
+      await ctx.reply(messages.numberTooHigh(0));
       return;
     }
 
-    awaitingClaimCount.add(telegramId);
-    await ctx.reply(messages.claimPrompt(maxClaim), { parse_mode: 'Markdown' });
+    const buttons: ReturnType<typeof Markup.button.callback>[][] = [];
+    let row: ReturnType<typeof Markup.button.callback>[] = [];
+    for (const amt of CLAIM_AMOUNTS) {
+      if (amt <= maxClaim) {
+        row.push(Markup.button.callback(`${amt}`, `claim_select:${amt}`));
+        if (row.length === 3) {
+          buttons.push(row);
+          row = [];
+        }
+      }
+    }
+    if (row.length > 0) buttons.push(row);
+    buttons.push([Markup.button.callback('🚫 Cancel', 'cancel_flow')]);
+
+    await ctx.reply(
+      messages.claimPromptButtons(user.points),
+      Markup.inlineKeyboard(buttons),
+    );
   } catch (error) {
     console.error('Error in claim command:', error);
     await ctx.reply(messages.error);
   }
 }
 
-export async function handleClaimCount(ctx: Context) {
+export async function handleClaimSelect(ctx: Context, amount: number) {
   try {
+    await ctx.answerCbQuery();
     const telegramId = ctx.from?.id.toString();
     if (!telegramId) return;
 
-    const text = 'text' in (ctx.message || {}) ? (ctx.message as { text: string }).text : '';
-    const count = parseNumber(text);
+    const user = await getOrRejectUser(ctx);
+    if (!user) return;
 
-    if (count === null) {
-      await ctx.reply(messages.invalidNumber);
+    const maxClaim = config.maxPoints - user.points;
+    if (amount > maxClaim || amount <= 0) {
+      await ctx.reply(messages.numberTooHigh(maxClaim));
       return;
     }
 
-    if (count <= 0) {
-      await ctx.reply(messages.numberTooLow);
+    const availableTweets = await prisma.tweet.findMany({
+      where: {
+        isComplete: false,
+        ownerUserId: { not: user.id },
+        tasks: { none: { claimerUserId: user.id } },
+      },
+      take: amount,
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (availableTweets.length === 0) {
+      await ctx.reply(messages.claimNoTweets);
+      return;
+    }
+
+    const actualAmount = Math.min(amount, availableTweets.length);
+
+    const tasks = await Promise.all(
+      availableTweets.slice(0, actualAmount).map((tweet) =>
+        prisma.task.create({
+          data: {
+            claimerUserId: user.id,
+            tweetId: tweet.id,
+            status: 'IN_PROGRESS',
+          },
+        }),
+      ),
+    );
+
+    const sessionTasks = tasks.map((task, i) => ({
+      id: task.id,
+      tweetUrl: availableTweets[i].tweetUrl,
+    }));
+
+    setClaimSession(telegramId, {
+      tasks: sessionTasks,
+      pointsToEarn: actualAmount,
+      startedAt: Date.now(),
+    });
+
+    setRateLimit(telegramId, 'claim');
+
+    const urls = sessionTasks.map((t) => t.tweetUrl);
+    await ctx.reply(
+      messages.claimMission(actualAmount, urls),
+      Markup.inlineKeyboard([
+        [Markup.button.callback('✅ Completed', 'claim_completed')],
+        [Markup.button.callback('❌ Cancel', 'claim_cancel')],
+      ]),
+    );
+  } catch (error) {
+    console.error('Error handling claim select:', error);
+    await ctx.reply(messages.error);
+  }
+}
+
+export async function handleClaimCompleted(ctx: Context) {
+  try {
+    await ctx.answerCbQuery();
+    const telegramId = ctx.from?.id.toString();
+    if (!telegramId) return;
+
+    const session = getClaimSession(telegramId);
+    if (!session) {
+      await ctx.reply('No active claim session.');
+      return;
+    }
+
+    const elapsed = Date.now() - session.startedAt;
+    if (elapsed > CLAIM_TIMEOUT_MS) {
+      await Promise.all(
+        session.tasks.map((t) =>
+          prisma.task.update({
+            where: { id: t.id },
+            data: { status: 'EXPIRED' },
+          }),
+        ),
+      );
+      clearClaimSession(telegramId);
+      await ctx.reply(messages.claimExpired, Markup.inlineKeyboard([
+        [Markup.button.callback('🏠 Home', 'go_home')],
+      ]));
       return;
     }
 
     const user = await prisma.user.findUnique({ where: { telegramId } });
     if (!user) return;
 
-    const maxClaim = config.maxPoints - user.points;
-    if (count > maxClaim) {
-      await ctx.reply(messages.numberTooHigh(maxClaim), { parse_mode: 'Markdown' });
-      return;
-    }
+    await prisma.$transaction(async (tx) => {
+      for (const task of session.tasks) {
+        await tx.task.update({
+          where: { id: task.id },
+          data: { status: 'COMPLETED', completedAt: new Date() },
+        });
 
-    clearAwaitingClaimCount(telegramId);
+        const tweet = await tx.tweet.findUnique({ where: { id: (await tx.task.findUnique({ where: { id: task.id } }))!.tweetId } });
+        if (tweet && tweet.filledSlots < tweet.totalSlots) {
+          await tx.tweet.update({
+            where: { id: tweet.id },
+            data: {
+              filledSlots: { increment: 1 },
+              isComplete: tweet.filledSlots + 1 >= tweet.totalSlots,
+            },
+          });
+        }
+      }
 
-    const availableTweets = await prisma.$queryRaw<
-      Array<{ id: string; tweetUrl: string }>
-    >`SELECT id, "tweetUrl" FROM tweets WHERE "isComplete" = false AND "ownerUserId" != ${user.id} AND "filledSlots" < "totalSlots" ORDER BY "createdAt" ASC LIMIT ${count}`;
-
-    if (availableTweets.length === 0) {
-      await ctx.reply(messages.claimNoSlots);
-      return;
-    }
-
-    setRateLimit(telegramId, 'claim');
-
-    const tasks = [];
-    for (const tweet of availableTweets) {
-      const task = await prisma.task.create({
+      await tx.user.update({
+        where: { id: user.id },
         data: {
-          claimerUserId: user.id,
-          tweetId: tweet.id,
-          status: 'IN_PROGRESS',
+          points: { increment: session.pointsToEarn },
+          lastActivity: new Date(),
         },
       });
-      tasks.push({ id: task.id, tweetUrl: tweet.tweetUrl });
-    }
+    });
 
-    activeClaimSessions.set(telegramId, { tasks, currentIndex: 0 });
+    clearClaimSession(telegramId);
 
-    await sendNextTask(ctx, telegramId);
+    await ctx.reply(messages.claimCompleted, Markup.inlineKeyboard([
+      [Markup.button.callback('🏠 Home', 'go_home')],
+    ]));
   } catch (error) {
-    console.error('Error handling claim count:', error);
+    console.error('Error handling claim completed:', error);
     await ctx.reply(messages.error);
   }
 }
 
-export async function sendNextTask(ctx: Context, telegramId: string) {
-  const session = activeClaimSessions.get(telegramId);
-  if (!session) return;
-
-  if (session.currentIndex >= session.tasks.length) {
-    const pointsEarned = session.tasks.length;
-
-    await prisma.user.update({
-      where: { telegramId },
-      data: {
-        points: { increment: pointsEarned },
-        lastActivity: new Date(),
-      },
-    });
-
-    activeClaimSessions.delete(telegramId);
-    await ctx.reply(messages.claimComplete(pointsEarned), { parse_mode: 'Markdown' });
-    return;
-  }
-
-  const task = session.tasks[session.currentIndex];
-  await ctx.reply(
-    messages.claimTask(task.tweetUrl, session.currentIndex + 1, session.tasks.length),
-    {
-      parse_mode: 'Markdown',
-      ...Markup.inlineKeyboard([
-        [Markup.button.callback('✅ Done', `task_done:${task.id}`)],
-        [Markup.button.callback('⏭ Skip', `task_skip:${task.id}`)],
-      ]),
-    },
-  );
-}
-
-export async function handleTaskDone(ctx: Context, taskId: string) {
+export async function handleClaimCancel(ctx: Context) {
   try {
+    await ctx.answerCbQuery();
     const telegramId = ctx.from?.id.toString();
     if (!telegramId) return;
 
-    const session = activeClaimSessions.get(telegramId);
-    if (!session) return;
-
-    const currentTask = session.tasks[session.currentIndex];
-    if (!currentTask || currentTask.id !== taskId) {
-      await ctx.answerCbQuery('This task is no longer active.');
-      return;
-    }
-
-    const task = await prisma.task.update({
-      where: { id: taskId },
-      data: {
-        status: 'COMPLETED',
-        completedAt: new Date(),
-      },
-      include: { tweet: { include: { owner: true } } },
-    });
-
-    await prisma.tweet.update({
-      where: { id: task.tweetId },
-      data: {
-        filledSlots: { increment: 1 },
-      },
-    });
-
-    const updatedTweet = await prisma.tweet.findUnique({ where: { id: task.tweetId } });
-    if (updatedTweet && updatedTweet.filledSlots >= updatedTweet.totalSlots) {
-      await prisma.tweet.update({
-        where: { id: task.tweetId },
-        data: { isComplete: true },
-      });
-    }
-
-    try {
-      const claimer = await prisma.user.findUnique({ where: { telegramId } });
-      await ctx.telegram.sendMessage(
-        task.tweet.owner.telegramId,
-        messages.engagementNotification(
-          task.tweet.tweetUrl,
-          claimer?.telegramUsername || 'unknown',
+    const session = getClaimSession(telegramId);
+    if (session) {
+      await Promise.all(
+        session.tasks.map((t) =>
+          prisma.task.update({
+            where: { id: t.id },
+            data: { status: 'CANCELLED' },
+          }),
         ),
-        { parse_mode: 'Markdown' },
       );
-    } catch (err) {
-      console.error('Failed to notify tweet owner:', err);
     }
 
-    session.currentIndex++;
-    await ctx.answerCbQuery('Task completed!');
-    await sendNextTask(ctx, telegramId);
+    clearClaimSession(telegramId);
+
+    await ctx.reply(messages.claimCancelled, Markup.inlineKeyboard([
+      [Markup.button.callback('🏠 Home', 'go_home')],
+    ]));
   } catch (error) {
-    console.error('Error handling task done:', error);
-    await ctx.answerCbQuery('Error processing task');
-  }
-}
-
-export async function handleTaskSkip(ctx: Context, taskId: string) {
-  try {
-    const telegramId = ctx.from?.id.toString();
-    if (!telegramId) return;
-
-    const session = activeClaimSessions.get(telegramId);
-    if (!session) return;
-
-    const currentTask = session.tasks[session.currentIndex];
-    if (!currentTask || currentTask.id !== taskId) {
-      await ctx.answerCbQuery('This task is no longer active.');
-      return;
-    }
-
-    await prisma.task.update({
-      where: { id: taskId },
-      data: { status: 'FLAGGED' },
-    });
-
-    session.tasks.splice(session.currentIndex, 1);
-
-    await ctx.answerCbQuery('Task skipped and flagged');
-    await sendNextTask(ctx, telegramId);
-  } catch (error) {
-    console.error('Error handling task skip:', error);
-    await ctx.answerCbQuery('Error processing skip');
+    console.error('Error handling claim cancel:', error);
+    await ctx.reply(messages.error);
   }
 }

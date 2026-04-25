@@ -1,60 +1,60 @@
 import { Context, Markup } from 'telegraf';
 import { prisma } from '@reply-society/db';
 import { messages } from '../messages';
+import { clearAllFlows } from '../state';
+
+const homeKeyboard = Markup.inlineKeyboard([
+  [Markup.button.callback('📊 My Status', 'my_status'), Markup.button.callback('🔗 Set X Profile', 'set_profile')],
+  [Markup.button.callback('+ Claim Points', 'claim_points'), Markup.button.callback('— Use Points', 'use_points')],
+  [Markup.button.callback('📈 My Stats', 'my_stats'), Markup.button.callback('🎁 Gift Points', 'gift_points')],
+  [Markup.button.callback('🎲 Point Gamble', 'point_gamble')],
+  [Markup.button.callback('📋 Use History', 'use_history'), Markup.button.callback('📄 Claim History', 'claim_history')],
+  [Markup.button.callback('🔄 Refresh Dashboard', 'refresh_home')],
+]);
 
 export async function startCommand(ctx: Context) {
   try {
     const telegramId = ctx.from?.id.toString();
-    const telegramUsername = ctx.from?.username || 'unknown';
-
     if (!telegramId) return;
 
-    let user = await prisma.user.findUnique({
-      where: { telegramId },
-    });
+    clearAllFlows(telegramId);
+
+    let user = await prisma.user.findUnique({ where: { telegramId } });
 
     if (!user) {
       user = await prisma.user.create({
         data: {
           telegramId,
-          telegramUsername,
+          telegramUsername: ctx.from?.username || null,
         },
       });
-
-      await ctx.reply(messages.welcomeNew, {
-        parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard([
-          [Markup.button.callback('📝 Set X Profile', 'set_profile')],
-        ]),
-      });
+      await ctx.reply(messages.welcomeNew, homeKeyboard);
       return;
     }
 
-    user = await prisma.user.update({
-      where: { telegramId },
+    if (user.status === 'INACTIVE') {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { status: 'APPROVED', lastActivity: new Date() },
+      });
+      user.status = 'APPROVED';
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
       data: {
         lastActivity: new Date(),
-        telegramUsername,
-        status: user.status === 'INACTIVE' ? 'APPROVED' : user.status,
+        telegramUsername: ctx.from?.username || user.telegramUsername,
       },
     });
 
-    const keyboard = [];
-    if (!user.xProfileUrl) {
-      keyboard.push([Markup.button.callback('📝 Set X Profile', 'set_profile')]);
-    }
-    if (user.status === 'APPROVED') {
-      keyboard.push([
-        Markup.button.callback('📥 Claim Points', 'claim_points'),
-        Markup.button.callback('📤 Use Points', 'use_points'),
-      ]);
-    }
-    keyboard.push([Markup.button.callback('📊 My Stats', 'my_stats')]);
-
-    await ctx.reply(messages.welcome(telegramUsername, user.points, user.status), {
-      parse_mode: 'Markdown',
-      ...Markup.inlineKeyboard(keyboard),
+    const activeTweets = await prisma.tweet.findMany({
+      where: { ownerUserId: user.id, isComplete: false },
+      select: { tweetUrl: true, filledSlots: true, totalSlots: true },
     });
+
+    const text = messages.homeDashboard(user.points, user.status, activeTweets);
+    await ctx.reply(text, homeKeyboard);
   } catch (error) {
     console.error('Error in start command:', error);
     await ctx.reply(messages.error);

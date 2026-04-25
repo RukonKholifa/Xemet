@@ -3,28 +3,21 @@ import express from 'express';
 import { config } from './config';
 import {
   startCommand,
-  setProfileCommand,
-  handleProfileUrl,
-  isAwaitingProfile,
-  claimCommand,
-  handleClaimCount,
-  handleTaskDone,
-  handleTaskSkip,
-  isAwaitingClaimCount,
-  useCommand,
-  handleUseCount,
-  isAwaitingUseCount,
-  statsCommand,
-  pendingCommand,
-  approveCommand,
-  rejectCommand,
-  banCommand,
-  unbanCommand,
-  adminStatsCommand,
-  shamelistCommand,
+  setProfileCommand, handleProfileUrl, setProfileBotInstance,
+  claimCommand, handleClaimSelect, handleClaimCompleted, handleClaimCancel,
+  useCommand, handleUseSelect, handleUseTweetUrl,
+  myStatusCommand, myStatsCommand,
+  giftInfoCommand, giftCommand, setGiftBotInstance,
+  gambleCommand, handleGamble,
+  claimHistoryCommand, useHistoryCommand, viewClaimTweet, viewUseTweet,
+  pendingCommand, approveCommand, rejectCommand,
+  banCommand, unbanCommand, adminStatsCommand, shamelistCommand,
+  handleApprove, handleReject, setAdminBotInstance,
 } from './commands';
 import { startCronJobs } from './jobs';
 import { apiAuthMiddleware } from './middleware/apiAuth';
+import { getFlow } from './state';
+import { clearAllFlows } from './state';
 
 const bot = new Telegraf(config.botToken);
 const app = express();
@@ -155,9 +148,7 @@ app.post('/api/users/:id/approve', async (req, res) => {
     });
 
     try {
-      await bot.telegram.sendMessage(user.telegramId, '🎉 Your account has been *APPROVED*!', {
-        parse_mode: 'Markdown',
-      });
+      await bot.telegram.sendMessage(user.telegramId, '✅ Account Approved! You can now use /claim and /use.');
     } catch (err) {
       console.error('Failed to notify user:', err);
     }
@@ -211,13 +202,14 @@ app.post('/api/users/:id/unban', async (req, res) => {
   }
 });
 
-// Bot commands
+// --- Bot commands ---
 bot.command('start', startCommand);
 bot.command('home', startCommand);
 bot.command('setprofile', setProfileCommand);
 bot.command('claim', claimCommand);
 bot.command('use', useCommand);
-bot.command('stats', statsCommand);
+bot.command('stats', myStatsCommand);
+bot.command('gift', giftCommand);
 
 // Admin commands
 bot.command('pending', pendingCommand);
@@ -228,53 +220,135 @@ bot.command('unban', unbanCommand);
 bot.command('adminstats', adminStatsCommand);
 bot.command('shamelist', shamelistCommand);
 
-// Callback queries (inline keyboard buttons)
+// --- Callback queries (inline keyboard buttons) ---
+
+// Home / navigation
+bot.action('go_home', async (ctx) => {
+  await ctx.answerCbQuery();
+  await startCommand(ctx);
+});
+bot.action('refresh_home', async (ctx) => {
+  await ctx.answerCbQuery();
+  await startCommand(ctx);
+});
+
+// Set profile
 bot.action('set_profile', async (ctx) => {
   await ctx.answerCbQuery();
   await setProfileCommand(ctx);
 });
 
+// Claim flow
 bot.action('claim_points', async (ctx) => {
   await ctx.answerCbQuery();
   await claimCommand(ctx);
 });
+bot.action(/^claim_select:(\d+)$/, async (ctx) => {
+  const amount = parseInt(ctx.match[1], 10);
+  await handleClaimSelect(ctx, amount);
+});
+bot.action('claim_completed', async (ctx) => {
+  await handleClaimCompleted(ctx);
+});
+bot.action('claim_cancel', async (ctx) => {
+  await handleClaimCancel(ctx);
+});
 
+// Use flow
 bot.action('use_points', async (ctx) => {
   await ctx.answerCbQuery();
   await useCommand(ctx);
 });
+bot.action(/^use_select:(\d+)$/, async (ctx) => {
+  const amount = parseInt(ctx.match[1], 10);
+  await handleUseSelect(ctx, amount);
+});
 
+// My Status / My Stats
+bot.action('my_status', async (ctx) => {
+  await ctx.answerCbQuery();
+  await myStatusCommand(ctx);
+});
 bot.action('my_stats', async (ctx) => {
   await ctx.answerCbQuery();
-  await statsCommand(ctx);
+  await myStatsCommand(ctx);
 });
 
-bot.action(/^task_done:(.+)$/, async (ctx) => {
-  const taskId = ctx.match[1];
-  await handleTaskDone(ctx, taskId);
+// Gift
+bot.action('gift_points', async (ctx) => {
+  await ctx.answerCbQuery();
+  await giftInfoCommand(ctx);
 });
 
-bot.action(/^task_skip:(.+)$/, async (ctx) => {
-  const taskId = ctx.match[1];
-  await handleTaskSkip(ctx, taskId);
+// Gamble
+bot.action('point_gamble', async (ctx) => {
+  await ctx.answerCbQuery();
+  await gambleCommand(ctx);
+});
+bot.action(/^gamble:(\d+)$/, async (ctx) => {
+  const multiplier = parseInt(ctx.match[1], 10);
+  await handleGamble(ctx, multiplier);
+});
+
+// History
+bot.action('claim_history', async (ctx) => {
+  await ctx.answerCbQuery();
+  await claimHistoryCommand(ctx, 0);
+});
+bot.action(/^claim_history:(\d+)$/, async (ctx) => {
+  await ctx.answerCbQuery();
+  const page = parseInt(ctx.match[1], 10);
+  await claimHistoryCommand(ctx, page);
+});
+bot.action(/^claim_tweet:(.+)$/, async (ctx) => {
+  await viewClaimTweet(ctx, ctx.match[1]);
+});
+
+bot.action('use_history', async (ctx) => {
+  await ctx.answerCbQuery();
+  await useHistoryCommand(ctx, 0);
+});
+bot.action(/^use_history:(\d+)$/, async (ctx) => {
+  await ctx.answerCbQuery();
+  const page = parseInt(ctx.match[1], 10);
+  await useHistoryCommand(ctx, page);
+});
+bot.action(/^use_tweet_view:(.+)$/, async (ctx) => {
+  await viewUseTweet(ctx, ctx.match[1]);
+});
+
+// Admin inline approve/reject
+bot.action(/^admin_approve:(.+)$/, async (ctx) => {
+  await ctx.answerCbQuery();
+  await handleApprove(ctx, ctx.match[1]);
+});
+bot.action(/^admin_reject:(.+)$/, async (ctx) => {
+  await ctx.answerCbQuery();
+  await handleReject(ctx, ctx.match[1]);
+});
+
+// Cancel flow
+bot.action('cancel_flow', async (ctx) => {
+  await ctx.answerCbQuery();
+  const telegramId = ctx.from?.id.toString();
+  if (telegramId) {
+    clearAllFlows(telegramId);
+  }
+  await startCommand(ctx);
 });
 
 // Text message handler for conversation flows
 bot.on('text', async (ctx) => {
   const telegramId = ctx.from.id.toString();
+  const flow = getFlow(telegramId);
 
-  if (isAwaitingProfile(telegramId)) {
+  if (flow === 'profile') {
     await handleProfileUrl(ctx);
     return;
   }
 
-  if (isAwaitingClaimCount(telegramId)) {
-    await handleClaimCount(ctx);
-    return;
-  }
-
-  if (isAwaitingUseCount(telegramId)) {
-    await handleUseCount(ctx);
+  if (flow === 'use_tweet') {
+    await handleUseTweetUrl(ctx);
     return;
   }
 });
@@ -286,7 +360,12 @@ bot.catch((err) => {
 
 // Start
 async function main() {
-  console.log('🤖 Starting Reply Society Champs Bot...');
+  console.log('🤖 Starting EngageSwapBot...');
+
+  // Set bot instances for modules that need to send notifications
+  setProfileBotInstance(bot);
+  setGiftBotInstance(bot);
+  setAdminBotInstance(bot);
 
   startCronJobs(bot);
 

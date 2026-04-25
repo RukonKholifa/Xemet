@@ -1,17 +1,15 @@
-import { Context } from 'telegraf';
+import { Context, Markup } from 'telegraf';
 import { prisma } from '@reply-society/db';
 import { messages } from '../messages';
 import { isValidXProfileUrl } from '../utils/validation';
 import { config } from '../config';
+import { clearAllFlows, setFlow, isInFlow } from '../state';
+import { Telegraf } from 'telegraf';
 
-const awaitingProfile = new Set<string>();
+let botInstance: Telegraf | null = null;
 
-export function isAwaitingProfile(telegramId: string): boolean {
-  return awaitingProfile.has(telegramId);
-}
-
-export function clearAwaitingProfile(telegramId: string): void {
-  awaitingProfile.delete(telegramId);
+export function setBotInstance(bot: Telegraf): void {
+  botInstance = bot;
 }
 
 export async function setProfileCommand(ctx: Context) {
@@ -19,8 +17,18 @@ export async function setProfileCommand(ctx: Context) {
     const telegramId = ctx.from?.id.toString();
     if (!telegramId) return;
 
-    awaitingProfile.add(telegramId);
-    await ctx.reply(messages.setProfilePrompt, { parse_mode: 'Markdown' });
+    const user = await prisma.user.findUnique({ where: { telegramId } });
+    if (user?.status === 'BANNED') {
+      await ctx.reply(messages.alreadyBanned);
+      return;
+    }
+
+    clearAllFlows(telegramId);
+    setFlow(telegramId, 'profile');
+
+    await ctx.reply(messages.setProfilePrompt, Markup.inlineKeyboard([
+      [Markup.button.callback('❌ Cancel', 'cancel_flow')],
+    ]));
   } catch (error) {
     console.error('Error in setprofile command:', error);
     await ctx.reply(messages.error);
@@ -32,40 +40,62 @@ export async function handleProfileUrl(ctx: Context) {
     const telegramId = ctx.from?.id.toString();
     if (!telegramId) return;
 
-    const text = 'text' in (ctx.message || {}) ? (ctx.message as { text: string }).text : '';
+    if (!isInFlow(telegramId, 'profile')) return;
+
+    const text = (ctx.message as { text?: string })?.text;
     if (!text) return;
 
-    if (!isValidXProfileUrl(text)) {
+    const url = text.trim();
+    if (!isValidXProfileUrl(url)) {
       await ctx.reply(messages.profileInvalid);
       return;
     }
 
-    clearAwaitingProfile(telegramId);
+    clearAllFlows(telegramId);
 
-    const user = await prisma.user.update({
-      where: { telegramId },
-      data: {
-        xProfileUrl: text.trim(),
-        status: 'PENDING',
-        lastActivity: new Date(),
-      },
-    });
+    let user = await prisma.user.findUnique({ where: { telegramId } });
 
-    await ctx.reply(messages.profileSet(text.trim()), { parse_mode: 'Markdown' });
+    if (user) {
+      const newStatus = user.status === 'APPROVED' ? 'APPROVED' :
+                        user.status === 'BANNED' ? 'BANNED' : 'PENDING';
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          xProfileUrl: url,
+          status: newStatus,
+          lastActivity: new Date(),
+          telegramUsername: ctx.from?.username || user.telegramUsername,
+        },
+      });
+    } else {
+      user = await prisma.user.create({
+        data: {
+          telegramId,
+          telegramUsername: ctx.from?.username || null,
+          xProfileUrl: url,
+          status: 'PENDING',
+        },
+      });
+    }
 
-    for (const adminId of config.adminTelegramIds) {
-      try {
-        await ctx.telegram.sendMessage(
-          adminId,
-          messages.adminNewUser(
-            user.telegramUsername || 'unknown',
-            text.trim(),
-            user.id,
-          ),
-          { parse_mode: 'Markdown' },
-        );
-      } catch (err) {
-        console.error(`Failed to notify admin ${adminId}:`, err);
+    await ctx.reply(messages.profileSet(url), Markup.inlineKeyboard([
+      [Markup.button.callback('🏠 Home', 'go_home')],
+    ]));
+
+    if (user.status !== 'APPROVED' && user.status !== 'BANNED' && botInstance) {
+      for (const adminId of config.adminTelegramIds) {
+        try {
+          await botInstance.telegram.sendMessage(
+            adminId,
+            messages.adminNewUser(
+              ctx.from?.username || 'unknown',
+              url,
+              telegramId,
+            ),
+          );
+        } catch (err) {
+          console.error(`Failed to notify admin ${adminId}:`, err);
+        }
       }
     }
   } catch (error) {
