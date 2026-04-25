@@ -51,7 +51,10 @@ export async function claimCommand(ctx: Context) {
     const userMax = getMaxPoints(telegramId);
     const maxClaim = userMax - user.points;
     if (maxClaim <= 0) {
-      await ctx.reply(messages.numberTooHigh(0));
+      await ctx.reply(messages.atMaxBalance, Markup.inlineKeyboard([
+        [Markup.button.callback('— Use Points', 'use_points')],
+        [Markup.button.callback('🏠 Home', 'go_home')],
+      ]));
       return;
     }
 

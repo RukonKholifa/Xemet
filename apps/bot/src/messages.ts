@@ -248,6 +248,8 @@ export const messages = {
 
   numberTooHigh: (max: number) => `❌ Maximum allowed is ${max}.`,
 
+  atMaxBalance: `❌ You're already at the maximum balance of 50 points! Spend some points first using — Use Points.`,
+
   numberTooLow: `❌ Please enter a number greater than 0.`,
 
   error: `❌ An error occurred. Please try again later.`,
