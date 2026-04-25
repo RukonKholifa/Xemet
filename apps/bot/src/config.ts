@@ -20,3 +20,9 @@ export const config = {
 export function isAdmin(telegramId: string): boolean {
   return config.adminTelegramIds.includes(telegramId);
 }
+
+export function getMaxPoints(telegramId: string): number {
+  return isAdmin(telegramId) ? Infinity : config.maxPoints;
+}
+
+export const ADMIN_X_PROFILE = 'https://x.com/Rukon__Kholifa';

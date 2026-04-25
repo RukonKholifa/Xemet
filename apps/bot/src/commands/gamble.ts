@@ -1,7 +1,7 @@
 import { Context, Markup } from 'telegraf';
 import { prisma } from '@reply-society/db';
 import { messages } from '../messages';
-import { config } from '../config';
+import { config, getMaxPoints } from '../config';
 import { clearAllFlows } from '../state';
 
 export async function gambleCommand(ctx: Context) {
@@ -78,7 +78,7 @@ export async function handleGamble(ctx: Context, multiplier: number) {
     const won = Math.random() < winChance;
 
     if (won) {
-      const cappedWin = Math.min(winAmount, config.maxPoints - user.points);
+      const cappedWin = Math.min(winAmount, getMaxPoints(telegramId) - user.points);
       if (cappedWin > 0) {
         await prisma.user.update({
           where: { id: user.id },

@@ -1,7 +1,7 @@
 import { Context, Markup } from 'telegraf';
 import { prisma } from '@reply-society/db';
 import { messages } from '../messages';
-import { isAdmin, config } from '../config';
+import { isAdmin, config, getMaxPoints } from '../config';
 import { Telegraf } from 'telegraf';
 
 let botInstance: Telegraf | null = null;
@@ -359,9 +359,10 @@ export async function addPointsCommand(ctx: Context) {
       return;
     }
 
-    const cappedAmount = Math.min(amount, config.maxPoints - user.points);
+    const targetMax = getMaxPoints(user.telegramId);
+    const cappedAmount = Math.min(amount, targetMax - user.points);
     if (cappedAmount <= 0) {
-      await ctx.reply(`❌ @${targetUsername} is already at the maximum balance of ${config.maxPoints} points.`);
+      await ctx.reply(`❌ @${targetUsername} is already at the maximum balance.`);
       return;
     }
 

@@ -1,7 +1,7 @@
 import { Context, Markup } from 'telegraf';
 import { prisma } from '@reply-society/db';
 import { messages } from '../messages';
-import { config } from '../config';
+import { config, getMaxPoints } from '../config';
 import { clearAllFlows } from '../state';
 import { Telegraf } from 'telegraf';
 
@@ -88,9 +88,10 @@ export async function giftCommand(ctx: Context) {
       return;
     }
 
-    const cappedAmount = Math.min(amount, config.maxPoints - recipient.points);
+    const recipientMax = getMaxPoints(recipient.telegramId);
+    const cappedAmount = Math.min(amount, recipientMax - recipient.points);
     if (cappedAmount <= 0) {
-      await ctx.reply(`❌ @${recipientUsername} is already at the maximum balance of ${config.maxPoints} points.`);
+      await ctx.reply(`❌ @${recipientUsername} is already at the maximum balance.`);
       return;
     }
 

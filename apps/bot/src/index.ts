@@ -1,6 +1,6 @@
 import { Telegraf } from 'telegraf';
 import express from 'express';
-import { config } from './config';
+import { config, getMaxPoints } from './config';
 import {
   startCommand,
   setProfileCommand, handleProfileUrl, setProfileBotInstance,
@@ -217,9 +217,10 @@ app.post('/api/users/:id/addpoints', async (req, res) => {
       return;
     }
 
-    const cappedAmount = Math.min(amount, config.maxPoints - user.points);
+    const targetMax = getMaxPoints(user.telegramId);
+    const cappedAmount = Math.min(amount, targetMax - user.points);
     if (cappedAmount <= 0) {
-      res.status(400).json({ error: `User is already at maximum balance of ${config.maxPoints}` });
+      res.status(400).json({ error: 'User is already at maximum balance' });
       return;
     }
 

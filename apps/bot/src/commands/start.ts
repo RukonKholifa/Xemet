@@ -2,7 +2,7 @@ import { Context, Markup } from 'telegraf';
 import { prisma } from '@reply-society/db';
 import { messages } from '../messages';
 import { clearAllFlows } from '../state';
-import { isAdmin } from '../config';
+import { isAdmin, ADMIN_X_PROFILE } from '../config';
 
 const homeKeyboard = Markup.inlineKeyboard([
   [Markup.button.callback('📊 My Status', 'my_status'), Markup.button.callback('🔗 Set X Profile', 'set_profile')],
@@ -23,15 +23,16 @@ export async function startCommand(ctx: Context) {
     let user = await prisma.user.findUnique({ where: { telegramId } });
 
     if (!user) {
-      const autoApprove = isAdmin(telegramId);
+      const adminUser = isAdmin(telegramId);
       user = await prisma.user.create({
         data: {
           telegramId,
           telegramUsername: ctx.from?.username || null,
-          status: autoApprove ? 'APPROVED' : 'PENDING',
+          status: adminUser ? 'APPROVED' : 'PENDING',
+          xProfileUrl: adminUser ? ADMIN_X_PROFILE : null,
         },
       });
-      if (autoApprove) {
+      if (adminUser) {
         const activeTweets = await prisma.tweet.findMany({
           where: { ownerUserId: user.id, isComplete: false },
           select: { tweetUrl: true, filledSlots: true, totalSlots: true },
@@ -44,18 +45,24 @@ export async function startCommand(ctx: Context) {
       return;
     }
 
+    if (isAdmin(telegramId)) {
+      const updates: Record<string, unknown> = {};
+      if (user.status !== 'APPROVED') {
+        updates.status = 'APPROVED';
+        user.status = 'APPROVED';
+      }
+      if (!user.xProfileUrl) {
+        updates.xProfileUrl = ADMIN_X_PROFILE;
+      }
+      if (Object.keys(updates).length > 0) {
+        await prisma.user.update({ where: { id: user.id }, data: updates });
+      }
+    }
+
     if (user.status === 'INACTIVE') {
       await prisma.user.update({
         where: { id: user.id },
         data: { status: 'APPROVED', lastActivity: new Date() },
-      });
-      user.status = 'APPROVED';
-    }
-
-    if (isAdmin(telegramId) && user.status === 'PENDING') {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { status: 'APPROVED' },
       });
       user.status = 'APPROVED';
     }

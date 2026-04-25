@@ -1,7 +1,7 @@
 import { Context, Markup } from 'telegraf';
 import { prisma } from '@reply-society/db';
 import { messages } from '../messages';
-import { config } from '../config';
+import { config, getMaxPoints } from '../config';
 import { checkRateLimit, setRateLimit } from '../middleware/rateLimit';
 import {
   clearAllFlows, setFlow, isInFlow,
@@ -48,7 +48,8 @@ export async function claimCommand(ctx: Context) {
 
     clearAllFlows(telegramId);
 
-    const maxClaim = config.maxPoints - user.points;
+    const userMax = getMaxPoints(telegramId);
+    const maxClaim = userMax - user.points;
     if (maxClaim <= 0) {
       await ctx.reply(messages.numberTooHigh(0));
       return;
@@ -87,7 +88,7 @@ export async function handleClaimSelect(ctx: Context, amount: number) {
     const user = await getOrRejectUser(ctx);
     if (!user) return;
 
-    const maxClaim = config.maxPoints - user.points;
+    const maxClaim = getMaxPoints(telegramId) - user.points;
     if (amount > maxClaim || amount <= 0) {
       await ctx.reply(messages.numberTooHigh(maxClaim));
       return;
@@ -203,7 +204,8 @@ export async function handleClaimCompleted(ctx: Context) {
       }
 
       const freshUser = await tx.user.findUnique({ where: { id: user.id } });
-      const cappedPoints = Math.min(session.pointsToEarn, config.maxPoints - (freshUser?.points || 0));
+      const userMax = getMaxPoints(telegramId);
+      const cappedPoints = Math.min(session.pointsToEarn, userMax - (freshUser?.points || 0));
       if (cappedPoints > 0) {
         await tx.user.update({
           where: { id: user.id },
