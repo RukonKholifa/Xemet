@@ -11,7 +11,7 @@ export async function cleanupInactiveUsers(bot: Telegraf) {
     const inactiveUsers = await prisma.user.findMany({
       where: {
         lastActivity: { lt: cutoffDate },
-        status: { in: ['APPROVED', 'PENDING'] },
+        status: 'APPROVED',
       },
     });
 

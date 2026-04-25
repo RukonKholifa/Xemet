@@ -9,7 +9,7 @@ import {
   setUseSession, getUseSession, clearUseSession,
 } from '../state';
 
-const USE_AMOUNTS = [1, 5, 10, 15, 20, 25, 35, 40, 50];
+const USE_AMOUNTS = [1, 5, 10, 15, 20, 25, 30, 35, 40, 50];
 
 async function getOrRejectUser(ctx: Context): Promise<{ id: string; points: number; telegramId: string } | null> {
   const telegramId = ctx.from?.id.toString();

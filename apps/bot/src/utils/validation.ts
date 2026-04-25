@@ -1,5 +1,5 @@
 const X_PROFILE_REGEX = /^https?:\/\/(x\.com|twitter\.com)\/[a-zA-Z0-9_]+\/?$/;
-const TWEET_URL_REGEX = /^https?:\/\/(x\.com|twitter\.com)\/[a-zA-Z0-9_]+\/status\/\d+\/?$/;
+const TWEET_URL_REGEX = /^https?:\/\/(x\.com|twitter\.com)\/[a-zA-Z0-9_]+\/status\/\d+\/?(?:\?.*)?$/;
 
 export function isValidXProfileUrl(url: string): boolean {
   return X_PROFILE_REGEX.test(url.trim());

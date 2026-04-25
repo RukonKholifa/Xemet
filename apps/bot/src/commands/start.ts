@@ -60,11 +60,12 @@ export async function startCommand(ctx: Context) {
     }
 
     if (user.status === 'INACTIVE') {
+      const reactivateStatus = user.xProfileUrl ? 'APPROVED' : 'PENDING';
       await prisma.user.update({
         where: { id: user.id },
-        data: { status: 'APPROVED', lastActivity: new Date() },
+        data: { status: reactivateStatus, lastActivity: new Date() },
       });
-      user.status = 'APPROVED';
+      user.status = reactivateStatus;
     }
 
     await prisma.user.update({
