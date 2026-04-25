@@ -1,8 +1,13 @@
+function formatBalance(balance: number, isAdmin: boolean): string {
+  return isAdmin ? '♾️ Unlimited' : `${balance}`;
+}
+
 export const messages = {
   homeDashboard: (
     balance: number,
     status: string,
     activeTweets: Array<{ tweetUrl: string; filledSlots: number; totalSlots: number }>,
+    isAdminUser = false,
   ) => {
     const statusIcon =
       status === 'APPROVED' ? '✅ Active' :
@@ -13,7 +18,7 @@ export const messages = {
 
     let text =
       `👋 Welcome to EngageSwapBot!\n\n` +
-      `💎 Points: ${balance}\n` +
+      `💎 Points: ${formatBalance(balance, isAdminUser)}\n` +
       `📗 Status: ${statusIcon}\n\n` +
       `🚀 Mission: Earn points by engaging on X (Twitter).\n` +
       `Keeping your profile active helps the army grow!`;
@@ -37,8 +42,8 @@ export const messages = {
     `• Spend points to get engagements on your tweets\n\n` +
     `Start by setting your X profile using the button below.`,
 
-  claimPromptButtons: (balance: number) =>
-    `💰 Claim Points\n💎 Current Balance: ${balance}\nSelect an amount to add to your balance:`,
+  claimPromptButtons: (balance: number, isAdminUser = false) =>
+    `💰 Claim Points\n💎 Current Balance: ${formatBalance(balance, isAdminUser)}\nSelect an amount to add to your balance:`,
 
   claimMission: (n: number, urls: string[]) => {
     let text = `🚀 Reply Mission: ${n} Tweets\n⏳ You have 4h 0m to complete this task.\nPlease reply to the following tweets:\n`;
@@ -59,8 +64,8 @@ export const messages = {
 
   claimAlreadyInProgress: `⚠️ You already have tasks in progress. Complete them first!`,
 
-  usePromptButtons: (balance: number) =>
-    `💸 Use Points\n💎 Current Balance: ${balance}\nSelect an amount to spend:\n\n` +
+  usePromptButtons: (balance: number, isAdminUser = false) =>
+    `💸 Use Points\n💎 Current Balance: ${formatBalance(balance, isAdminUser)}\nSelect an amount to spend:\n\n` +
     `💡 You can spend multiple points on the same tweet. ` +
     `The system will recognize it and won't show the same tweet to the same user twice.`,
 
@@ -85,6 +90,7 @@ export const messages = {
     xProfileUrl: string | null,
     balance: number,
     status: string,
+    isAdminUser = false,
   ) => {
     const statusText =
       status === 'APPROVED' ? '✅ Authorized' :
@@ -98,7 +104,7 @@ export const messages = {
       `👤 Name: ${name}\n` +
       `🪪 Username: @${username || 'not set'}\n` +
       `🔗 X Profile: ${xProfileUrl || 'not linked'}\n\n` +
-      `💰 Balance: ${balance} Points\n` +
+      `💰 Balance: ${formatBalance(balance, isAdminUser)} Points\n` +
       `🛡️ Approval: ${statusText}`
     );
   },
@@ -114,6 +120,7 @@ export const messages = {
       expired: number;
     },
     balance: number,
+    isAdminUser = false,
   ) =>
     `📈 My Stats\n\n` +
     `🗓️ Last 7 Days:\n` +
@@ -127,9 +134,9 @@ export const messages = {
     `└ ✅ Missions Completed: ${allTime.completed}\n` +
     `└ ❌ Missions Cancelled: ${allTime.cancelled}\n` +
     `└ ⏰ Missions Expired: ${allTime.expired}\n\n` +
-    `💎 Current Balance: ${balance}`,
+    `💎 Current Balance: ${formatBalance(balance, isAdminUser)}`,
 
-  giftInfo: (balance: number) =>
+  giftInfo: (balance: number, isAdminUser = false) =>
     `🎁 Gift Points\nSend points to another member!\n\n` +
     `📋 How to use:\n/gift @telegramUsername {points} {message}\n\n` +
     `📌 Examples:\n/gift @john 5 Thanks for the help!\n/gift @alice 10 Great work this week\n\n` +
@@ -138,7 +145,7 @@ export const messages = {
     `- You cannot gift points to yourself\n` +
     `- The recipient must be a registered member\n` +
     `- Gifts cannot be undone once confirmed\n\n` +
-    `💎 Your current balance: ${balance}`,
+    `💎 Your current balance: ${formatBalance(balance, isAdminUser)}`,
 
   giftSuccess: (amount: number, recipient: string) =>
     `✅ Gift sent! ${amount} points transferred to @${recipient}.`,
@@ -156,8 +163,8 @@ export const messages = {
 
   giftUsage: `❌ Usage: /gift @username amount message\nExample: /gift @john 5 Thanks!`,
 
-  gamblePrompt: (balance: number) =>
-    `🎲 Point Gamble\n💎 Current Balance: ${balance}\n\n` +
+  gamblePrompt: (balance: number, isAdminUser = false) =>
+    `🎲 Point Gamble\n💎 Current Balance: ${formatBalance(balance, isAdminUser)}\n\n` +
     `Test your luck! Each play costs 1 point.\nChoose your risk level below:`,
 
   gambleWin: (n: number) =>

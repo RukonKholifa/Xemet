@@ -1,7 +1,7 @@
 import { Context, Markup } from 'telegraf';
 import { prisma } from '@reply-society/db';
 import { messages } from '../messages';
-import { config } from '../config';
+import { config, isAdmin } from '../config';
 import { checkRateLimit, setRateLimit } from '../middleware/rateLimit';
 import { isValidTweetUrl } from '../utils/validation';
 import {
@@ -63,7 +63,7 @@ export async function useCommand(ctx: Context) {
     buttons.push([Markup.button.callback('🚫 Cancel', 'cancel_flow')]);
 
     await ctx.reply(
-      messages.usePromptButtons(user.points),
+      messages.usePromptButtons(user.points, isAdmin(telegramId)),
       Markup.inlineKeyboard(buttons),
     );
   } catch (error) {

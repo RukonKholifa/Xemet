@@ -1,6 +1,7 @@
 import { Context, Markup } from 'telegraf';
 import { prisma } from '@reply-society/db';
 import { messages } from '../messages';
+import { isAdmin } from '../config';
 import { clearAllFlows } from '../state';
 
 export async function myStatusCommand(ctx: Context) {
@@ -17,7 +18,7 @@ export async function myStatusCommand(ctx: Context) {
     }
 
     const name = ctx.from?.first_name || 'Unknown';
-    const text = messages.myStatus(name, user.telegramUsername, user.xProfileUrl, user.points, user.status);
+    const text = messages.myStatus(name, user.telegramUsername, user.xProfileUrl, user.points, user.status, isAdmin(telegramId));
 
     await ctx.reply(text, Markup.inlineKeyboard([
       [Markup.button.callback('⬅️ Back to Home', 'go_home')],
@@ -86,7 +87,7 @@ export async function myStatsCommand(ctx: Context) {
       expired: expiredMissions,
     };
 
-    const text = messages.myStats(weekly, allTime, user.points);
+    const text = messages.myStats(weekly, allTime, user.points, isAdmin(telegramId));
 
     await ctx.reply(text, Markup.inlineKeyboard([
       [Markup.button.callback('🔄 Refresh', 'my_stats'), Markup.button.callback('🏠 Back to Home', 'go_home')],

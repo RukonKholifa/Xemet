@@ -37,7 +37,7 @@ export async function startCommand(ctx: Context) {
           where: { ownerUserId: user.id, isComplete: false },
           select: { tweetUrl: true, filledSlots: true, totalSlots: true },
         });
-        const text = messages.homeDashboard(user.points, user.status, activeTweets);
+        const text = messages.homeDashboard(user.points, user.status, activeTweets, true);
         await ctx.reply(text, homeKeyboard);
       } else {
         await ctx.reply(messages.welcomeNew, homeKeyboard);
@@ -80,7 +80,8 @@ export async function startCommand(ctx: Context) {
       select: { tweetUrl: true, filledSlots: true, totalSlots: true },
     });
 
-    const text = messages.homeDashboard(user.points, user.status, activeTweets);
+    const adminUser = isAdmin(telegramId);
+    const text = messages.homeDashboard(user.points, user.status, activeTweets, adminUser);
     await ctx.reply(text, homeKeyboard);
   } catch (error) {
     console.error('Error in start command:', error);

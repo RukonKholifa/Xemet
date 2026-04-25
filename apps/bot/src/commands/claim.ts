@@ -1,7 +1,7 @@
 import { Context, Markup } from 'telegraf';
 import { prisma } from '@reply-society/db';
 import { messages } from '../messages';
-import { config, getMaxPoints } from '../config';
+import { config, getMaxPoints, isAdmin } from '../config';
 import { checkRateLimit, setRateLimit } from '../middleware/rateLimit';
 import {
   clearAllFlows, setFlow, isInFlow,
@@ -70,7 +70,7 @@ export async function claimCommand(ctx: Context) {
     buttons.push([Markup.button.callback('🚫 Cancel', 'cancel_flow')]);
 
     await ctx.reply(
-      messages.claimPromptButtons(user.points),
+      messages.claimPromptButtons(user.points, isAdmin(telegramId)),
       Markup.inlineKeyboard(buttons),
     );
   } catch (error) {

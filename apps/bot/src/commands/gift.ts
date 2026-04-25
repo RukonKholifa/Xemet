@@ -1,7 +1,7 @@
 import { Context, Markup } from 'telegraf';
 import { prisma } from '@reply-society/db';
 import { messages } from '../messages';
-import { config, getMaxPoints } from '../config';
+import { config, getMaxPoints, isAdmin } from '../config';
 import { clearAllFlows } from '../state';
 import { Telegraf } from 'telegraf';
 
@@ -24,7 +24,7 @@ export async function giftInfoCommand(ctx: Context) {
       return;
     }
 
-    await ctx.reply(messages.giftInfo(user.points), Markup.inlineKeyboard([
+    await ctx.reply(messages.giftInfo(user.points, isAdmin(telegramId)), Markup.inlineKeyboard([
       [Markup.button.callback('🏠 Back to Home', 'go_home')],
     ]));
   } catch (error) {

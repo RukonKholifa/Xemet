@@ -1,7 +1,7 @@
 import { Context, Markup } from 'telegraf';
 import { prisma } from '@reply-society/db';
 import { messages } from '../messages';
-import { config, getMaxPoints } from '../config';
+import { config, getMaxPoints, isAdmin } from '../config';
 import { clearAllFlows } from '../state';
 
 export async function gambleCommand(ctx: Context) {
@@ -23,7 +23,7 @@ export async function gambleCommand(ctx: Context) {
     }
 
     await ctx.reply(
-      messages.gamblePrompt(user.points),
+      messages.gamblePrompt(user.points, isAdmin(telegramId)),
       Markup.inlineKeyboard([
         [
           Markup.button.callback('2x', 'gamble:2'),
