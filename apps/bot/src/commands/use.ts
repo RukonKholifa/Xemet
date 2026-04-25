@@ -91,7 +91,6 @@ async function handleTweetUrl(ctx: Context, telegramId: string, text: string) {
 
     const count = awaitingUseCount.get(telegramId) || 0;
     clearAwaitingUse(telegramId);
-    setRateLimit(telegramId, 'use');
 
     const user = await prisma.user.findUnique({ where: { telegramId } });
     if (!user) return;
@@ -118,6 +117,7 @@ async function handleTweetUrl(ctx: Context, telegramId: string, text: string) {
       }),
     ]);
 
+    setRateLimit(telegramId, 'use');
     await ctx.reply(messages.useSuccess(count, text.trim()), { parse_mode: 'Markdown' });
   } catch (error) {
     console.error('Error handling tweet URL:', error);

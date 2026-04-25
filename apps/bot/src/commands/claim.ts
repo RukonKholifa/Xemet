@@ -93,17 +93,17 @@ export async function handleClaimCount(ctx: Context) {
     }
 
     clearAwaitingClaimCount(telegramId);
-    setRateLimit(telegramId, 'claim');
 
     const availableTweets = await prisma.$queryRaw<
       Array<{ id: string; tweetUrl: string }>
     >`SELECT id, "tweetUrl" FROM tweets WHERE "isComplete" = false AND "ownerUserId" != ${user.id} AND "filledSlots" < "totalSlots" ORDER BY "createdAt" ASC LIMIT ${count}`;
 
-
     if (availableTweets.length === 0) {
       await ctx.reply(messages.claimNoSlots);
       return;
     }
+
+    setRateLimit(telegramId, 'claim');
 
     const tasks = [];
     for (const tweet of availableTweets) {

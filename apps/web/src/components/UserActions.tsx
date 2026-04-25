@@ -3,8 +3,6 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-
 interface UserActionsProps {
   userId: string;
   status: string;
@@ -17,7 +15,7 @@ export default function UserActions({ userId, status }: UserActionsProps) {
   async function handleAction(action: string) {
     setLoading(true);
     try {
-      await fetch(`${API_BASE}/api/users/${userId}/${action}`, {
+      await fetch(`/api/users/${userId}/${action}`, {
         method: 'POST',
       });
       router.refresh();

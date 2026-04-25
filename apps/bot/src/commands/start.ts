@@ -30,7 +30,7 @@ export async function startCommand(ctx: Context) {
       return;
     }
 
-    await prisma.user.update({
+    user = await prisma.user.update({
       where: { telegramId },
       data: {
         lastActivity: new Date(),

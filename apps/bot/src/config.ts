@@ -11,6 +11,7 @@ export const config = {
     .map((id) => id.trim())
     .filter(Boolean),
   port: parseInt(process.env.BOT_PORT || '3001', 10),
+  apiSecret: process.env.API_SECRET || '',
   maxPoints: 50,
   inactivityDays: 7,
   rateLimitMinutes: 10,

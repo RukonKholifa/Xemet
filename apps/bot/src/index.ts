@@ -24,6 +24,7 @@ import {
   shamelistCommand,
 } from './commands';
 import { startCronJobs } from './jobs';
+import { apiAuthMiddleware } from './middleware/apiAuth';
 
 const bot = new Telegraf(config.botToken);
 const app = express();
@@ -34,6 +35,9 @@ app.use(express.json());
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Protect all /api routes with API secret authentication
+app.use('/api', apiAuthMiddleware);
 
 // API endpoints for the web dashboard
 app.get('/api/stats', async (_req, res) => {

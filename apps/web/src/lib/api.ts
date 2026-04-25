@@ -1,10 +1,19 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_SECRET = process.env.API_SECRET || '';
 
 export async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  if (API_SECRET) {
+    headers['Authorization'] = `Bearer ${API_SECRET}`;
+  }
+
   const res = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      ...headers,
       ...options?.headers,
     },
     cache: 'no-store',
