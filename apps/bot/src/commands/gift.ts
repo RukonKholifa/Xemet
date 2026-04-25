@@ -1,6 +1,7 @@
 import { Context, Markup } from 'telegraf';
 import { prisma } from '@reply-society/db';
 import { messages } from '../messages';
+import { config } from '../config';
 import { clearAllFlows } from '../state';
 import { Telegraf } from 'telegraf';
 
@@ -87,14 +88,20 @@ export async function giftCommand(ctx: Context) {
       return;
     }
 
+    const cappedAmount = Math.min(amount, config.maxPoints - recipient.points);
+    if (cappedAmount <= 0) {
+      await ctx.reply(`❌ @${recipientUsername} is already at the maximum balance of ${config.maxPoints} points.`);
+      return;
+    }
+
     await prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: user.id },
-        data: { points: { decrement: amount }, lastActivity: new Date() },
+        data: { points: { decrement: cappedAmount }, lastActivity: new Date() },
       });
       await tx.user.update({
         where: { id: recipient.id },
-        data: { points: { increment: amount } },
+        data: { points: { increment: cappedAmount } },
       });
     });
 

@@ -202,13 +202,17 @@ export async function handleClaimCompleted(ctx: Context) {
         }
       }
 
-      await tx.user.update({
-        where: { id: user.id },
-        data: {
-          points: { increment: session.pointsToEarn },
-          lastActivity: new Date(),
-        },
-      });
+      const freshUser = await tx.user.findUnique({ where: { id: user.id } });
+      const cappedPoints = Math.min(session.pointsToEarn, config.maxPoints - (freshUser?.points || 0));
+      if (cappedPoints > 0) {
+        await tx.user.update({
+          where: { id: user.id },
+          data: {
+            points: { increment: cappedPoints },
+            lastActivity: new Date(),
+          },
+        });
+      }
     });
 
     clearClaimSession(telegramId);
