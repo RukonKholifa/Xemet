@@ -34,6 +34,7 @@ export async function useCommand(ctx: Context) {
 
     if (!(await checkRateLimit(ctx, 'use'))) return;
 
+    clearAwaitingUse(telegramId);
     awaitingUseCount.set(telegramId, 0);
     await ctx.reply(messages.usePrompt, { parse_mode: 'Markdown' });
   } catch (error) {

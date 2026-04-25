@@ -24,6 +24,7 @@ services:
       - key: NEXT_PUBLIC_API_URL
         sync: false
       - key: NEXT_PUBLIC_BOT_USERNAME
+        value: EngageSwapXBot
         sync: false
       - key: NODE_ENV
         value: production

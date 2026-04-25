@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import LogoutButton from '@/components/LogoutButton';
 
 const navItems = [
   { href: '/admin', label: 'Overview' },
@@ -19,9 +20,9 @@ export default function AdminLayout({
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <Link href="/" className="text-xl font-bold text-blue-600">
-              Reply Society Admin
+              EngageSwap Admin
             </Link>
-            <div className="flex space-x-1">
+            <div className="flex items-center space-x-1">
               {navItems.map((item) => (
                 <Link
                   key={item.href}
@@ -31,6 +32,7 @@ export default function AdminLayout({
                   {item.label}
                 </Link>
               ))}
+              <LogoutButton />
             </div>
           </div>
         </div>

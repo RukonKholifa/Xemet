@@ -33,7 +33,7 @@ export default async function HomePage() {
             tweets, then spend them to boost your own content.
           </p>
           <a
-            href={`https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME || 'YourBotUsername'}`}
+            href={`https://t.me/${process.env.NEXT_PUBLIC_BOT_USERNAME || 'EngageSwapXBot'}`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-block bg-white text-blue-700 font-bold px-8 py-4 rounded-xl text-lg hover:bg-blue-50 transition shadow-lg"

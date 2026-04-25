@@ -1,6 +1,8 @@
-# Reply Society Champs Bot
+# EngageSwap Bot (Reply Society Champs)
 
 A full-stack Telegram bot application for Twitter/X engagement exchange. Users earn points by engaging with others' tweets and spend points to get engagements on their own tweets.
+
+**Telegram Bot:** [@EngageSwapXBot](https://t.me/EngageSwapXBot)
 
 ## Features
 
@@ -82,24 +84,44 @@ reply-society-bot/
 | `DATABASE_URL` | PostgreSQL connection string |
 | `ADMIN_TELEGRAM_IDS` | Comma-separated list of admin Telegram user IDs |
 | `NEXTAUTH_SECRET` | Secret for session encryption |
+| `ADMIN_PASSWORD` | Password for the admin dashboard login |
 | `TELEGRAM_BOT_USERNAME` | Your bot's Telegram username |
 | `NEXT_PUBLIC_BOT_USERNAME` | Bot username (client-side) |
 | `NEXT_PUBLIC_API_URL` | Bot API URL for the web dashboard |
 
-## Setup
+## Local Development
 
-### Prerequisites
+### Quick Start with Docker Compose
+
+1. Copy `.env.example` to `.env`
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Fill in `BOT_TOKEN` and `ADMIN_TELEGRAM_IDS` in `.env`
+
+3. Run everything:
+   ```bash
+   docker-compose up
+   ```
+
+4. Bot is live on Telegram — try `/start` in [@EngageSwapXBot](https://t.me/EngageSwapXBot)
+5. Dashboard at [http://localhost:3000](http://localhost:3000)
+
+### Manual Setup (without Docker)
+
+#### Prerequisites
 
 - Node.js 20+
 - PostgreSQL database
 - Telegram Bot Token (create via [@BotFather](https://t.me/BotFather))
 
-### Local Development
+#### Steps
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/RukonKholifa/reply-society-bot.git
-   cd reply-society-bot
+   git clone https://github.com/RukonKholifa/Xemet.git
+   cd Xemet
    ```
 
 2. **Install dependencies**
@@ -110,7 +132,9 @@ reply-society-bot/
 3. **Configure environment**
    ```bash
    cp .env.example .env
-   # Edit .env with your values
+   # Edit .env with your BOT_TOKEN and ADMIN_TELEGRAM_IDS
+   # Also copy .env to apps/web/ for Next.js server-side env vars:
+   cp .env apps/web/.env
    ```
 
 4. **Set up the database**

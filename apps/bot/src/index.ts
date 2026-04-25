@@ -294,7 +294,12 @@ async function main() {
     console.log(`📡 API server running on port ${config.port}`);
   });
 
-  await bot.launch();
+  console.log('✅ Launching bot...');
+  bot.launch().then(() => {
+    console.log('✅ Bot polling stopped');
+  }).catch((err) => {
+    console.error('❌ Bot launch error:', err);
+  });
   console.log('✅ Bot is running!');
 
   process.once('SIGINT', () => bot.stop('SIGINT'));
