@@ -2,6 +2,7 @@ import { Context, Markup } from 'telegraf';
 import { prisma } from '@reply-society/db';
 import { messages } from '../messages';
 import { clearAllFlows } from '../state';
+import { isAdmin } from '../config';
 
 const homeKeyboard = Markup.inlineKeyboard([
   [Markup.button.callback('📊 My Status', 'my_status'), Markup.button.callback('🔗 Set X Profile', 'set_profile')],
@@ -22,13 +23,24 @@ export async function startCommand(ctx: Context) {
     let user = await prisma.user.findUnique({ where: { telegramId } });
 
     if (!user) {
+      const autoApprove = isAdmin(telegramId);
       user = await prisma.user.create({
         data: {
           telegramId,
           telegramUsername: ctx.from?.username || null,
+          status: autoApprove ? 'APPROVED' : 'PENDING',
         },
       });
-      await ctx.reply(messages.welcomeNew, homeKeyboard);
+      if (autoApprove) {
+        const activeTweets = await prisma.tweet.findMany({
+          where: { ownerUserId: user.id, isComplete: false },
+          select: { tweetUrl: true, filledSlots: true, totalSlots: true },
+        });
+        const text = messages.homeDashboard(user.points, user.status, activeTweets);
+        await ctx.reply(text, homeKeyboard);
+      } else {
+        await ctx.reply(messages.welcomeNew, homeKeyboard);
+      }
       return;
     }
 
@@ -36,6 +48,14 @@ export async function startCommand(ctx: Context) {
       await prisma.user.update({
         where: { id: user.id },
         data: { status: 'APPROVED', lastActivity: new Date() },
+      });
+      user.status = 'APPROVED';
+    }
+
+    if (isAdmin(telegramId) && user.status === 'PENDING') {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { status: 'APPROVED' },
       });
       user.status = 'APPROVED';
     }

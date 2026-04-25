@@ -12,7 +12,7 @@ import {
   claimHistoryCommand, useHistoryCommand, viewClaimTweet, viewUseTweet,
   pendingCommand, approveCommand, rejectCommand,
   banCommand, unbanCommand, adminStatsCommand, shamelistCommand,
-  handleApprove, handleReject, setAdminBotInstance,
+  addPointsCommand, handleApprove, handleReject, setAdminBotInstance,
 } from './commands';
 import { startCronJobs } from './jobs';
 import { apiAuthMiddleware } from './middleware/apiAuth';
@@ -202,6 +202,48 @@ app.post('/api/users/:id/unban', async (req, res) => {
   }
 });
 
+app.post('/api/users/:id/addpoints', async (req, res) => {
+  try {
+    const { prisma } = await import('@reply-society/db');
+    const amount = parseInt(req.body.amount, 10);
+    if (!amount || amount <= 0) {
+      res.status(400).json({ error: 'Invalid amount' });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    const cappedAmount = Math.min(amount, config.maxPoints - user.points);
+    if (cappedAmount <= 0) {
+      res.status(400).json({ error: `User is already at maximum balance of ${config.maxPoints}` });
+      return;
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: { points: { increment: cappedAmount } },
+    });
+
+    try {
+      await bot.telegram.sendMessage(
+        user.telegramId,
+        `💎 ${cappedAmount} points have been added to your balance by admin!`,
+      );
+    } catch (err) {
+      console.error('Failed to notify user about added points:', err);
+    }
+
+    res.json(updated);
+  } catch (error) {
+    console.error('Error adding points:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // --- Bot commands ---
 bot.command('start', startCommand);
 bot.command('home', startCommand);
@@ -219,6 +261,7 @@ bot.command('ban', banCommand);
 bot.command('unban', unbanCommand);
 bot.command('adminstats', adminStatsCommand);
 bot.command('shamelist', shamelistCommand);
+bot.command('addpoints', addPointsCommand);
 
 // --- Callback queries (inline keyboard buttons) ---
 

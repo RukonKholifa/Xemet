@@ -9,5 +9,5 @@ export { claimHistoryCommand, useHistoryCommand, viewClaimTweet, viewUseTweet } 
 export {
   pendingCommand, approveCommand, rejectCommand,
   banCommand, unbanCommand, adminStatsCommand, shamelistCommand,
-  handleApprove, handleReject, setAdminBotInstance,
+  addPointsCommand, handleApprove, handleReject, setAdminBotInstance,
 } from './admin';

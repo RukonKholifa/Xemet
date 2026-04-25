@@ -82,7 +82,7 @@ export default async function UsersPage() {
                     {new Date(user.lastActivity).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4">
-                    <UserActions userId={user.id} status={user.status} />
+                    <UserActions userId={user.id} status={user.status} username={user.telegramUsername || 'unknown'} />
                   </td>
                 </tr>
               ))}

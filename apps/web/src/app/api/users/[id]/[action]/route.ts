@@ -4,12 +4,12 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const API_SECRET = process.env.API_SECRET || '';
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string; action: string } },
 ) {
   const { id, action } = params;
 
-  const validActions = ['approve', 'reject', 'ban', 'unban'];
+  const validActions = ['approve', 'reject', 'ban', 'unban', 'addpoints'];
   if (!validActions.includes(action)) {
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   }
@@ -22,9 +22,16 @@ export async function POST(
     headers['Authorization'] = `Bearer ${API_SECRET}`;
   }
 
+  let body: string | undefined;
+  if (action === 'addpoints') {
+    const data = await req.json();
+    body = JSON.stringify(data);
+  }
+
   const res = await fetch(`${API_BASE}/api/users/${id}/${action}`, {
     method: 'POST',
     headers,
+    body,
   });
 
   const data = await res.json();

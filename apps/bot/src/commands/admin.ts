@@ -1,7 +1,7 @@
 import { Context, Markup } from 'telegraf';
 import { prisma } from '@reply-society/db';
 import { messages } from '../messages';
-import { isAdmin } from '../config';
+import { isAdmin, config } from '../config';
 import { Telegraf } from 'telegraf';
 
 let botInstance: Telegraf | null = null;
@@ -327,6 +327,63 @@ export async function shamelistCommand(ctx: Context) {
     await ctx.reply(text);
   } catch (error) {
     console.error('Error in shamelist command:', error);
+    await ctx.reply(messages.error);
+  }
+}
+
+export async function addPointsCommand(ctx: Context) {
+  try {
+    if (!checkAdmin(ctx)) return;
+
+    const text = (ctx.message as { text?: string })?.text || '';
+    const match = text.match(/^\/addpoints\s+@(\S+)\s+(\d+)$/);
+    if (!match) {
+      await ctx.reply('Usage: /addpoints @username amount\nExample: /addpoints @Rukon19kholifa 25');
+      return;
+    }
+
+    const targetUsername = match[1];
+    const amount = parseInt(match[2], 10);
+
+    if (amount <= 0) {
+      await ctx.reply('❌ Amount must be greater than 0.');
+      return;
+    }
+
+    const user = await prisma.user.findFirst({
+      where: { telegramUsername: targetUsername },
+    });
+
+    if (!user) {
+      await ctx.reply(`❌ User @${targetUsername} not found.`);
+      return;
+    }
+
+    const cappedAmount = Math.min(amount, config.maxPoints - user.points);
+    if (cappedAmount <= 0) {
+      await ctx.reply(`❌ @${targetUsername} is already at the maximum balance of ${config.maxPoints} points.`);
+      return;
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: { points: { increment: cappedAmount } },
+    });
+
+    await ctx.reply(`✅ Added ${cappedAmount} points to @${targetUsername}. New balance: ${updated.points}`);
+
+    if (botInstance) {
+      try {
+        await botInstance.telegram.sendMessage(
+          user.telegramId,
+          `💎 ${cappedAmount} points have been added to your balance by admin!`,
+        );
+      } catch (err) {
+        console.error('Failed to notify user about added points:', err);
+      }
+    }
+  } catch (error) {
+    console.error('Error in addpoints command:', error);
     await ctx.reply(messages.error);
   }
 }
