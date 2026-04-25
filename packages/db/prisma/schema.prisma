@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  BANNED
+  INACTIVE
+}
+
+enum TaskStatus {
+  IN_PROGRESS
+  COMPLETED
+  FLAGGED
+}
+
+model User {
+  id               String     @id @default(cuid())
+  telegramId       String     @unique
+  telegramUsername  String?
+  xProfileUrl      String?
+  status           UserStatus @default(PENDING)
+  points           Int        @default(0)
+  lastActivity     DateTime   @default(now())
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  tweets           Tweet[]    @relation("TweetOwner")
+  tasks            Task[]     @relation("TaskClaimer")
+  adminLogs        AdminLog[] @relation("AdminLogTarget")
+
+  @@map("users")
+}
+
+model Tweet {
+  id          String   @id @default(cuid())
+  ownerUserId String
+  tweetUrl    String
+  totalSlots  Int
+  filledSlots Int      @default(0)
+  isComplete  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  owner       User     @relation("TweetOwner", fields: [ownerUserId], references: [id])
+  tasks       Task[]
+
+  @@map("tweets")
+}
+
+model Task {
+  id            String     @id @default(cuid())
+  claimerUserId String
+  tweetId       String
+  status        TaskStatus @default(IN_PROGRESS)
+  claimedAt     DateTime   @default(now())
+  completedAt   DateTime?
+
+  claimer       User       @relation("TaskClaimer", fields: [claimerUserId], references: [id])
+  tweet         Tweet      @relation(fields: [tweetId], references: [id])
+
+  @@map("tasks")
+}
+
+model AdminLog {
+  id              String   @id @default(cuid())
+  adminTelegramId String
+  action          String
+  targetUserId    String?
+  createdAt       DateTime @default(now())
+
+  targetUser      User?    @relation("AdminLogTarget", fields: [targetUserId], references: [id])
+
+  @@map("admin_logs")
+}

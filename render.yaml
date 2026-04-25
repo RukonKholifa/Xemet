@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: reply-society-bot
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: ADMIN_TELEGRAM_IDS
+        sync: false
+      - key: NODE_ENV
+        value: production
+    healthCheckPath: /health
+    buildCommand: ""
+    startCommand: "npx prisma migrate deploy --schema=packages/db/prisma/schema.prisma && node apps/bot/dist/index.js"
+
+  - type: web
+    name: reply-society-web
+    runtime: docker
+    dockerfilePath: ./Dockerfile.web
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+      - key: NEXT_PUBLIC_BOT_USERNAME
+        sync: false
+      - key: NODE_ENV
+        value: production
+
+databases:
+  - name: reply-society-db
+    databaseName: reply_society_bot
+    plan: free
