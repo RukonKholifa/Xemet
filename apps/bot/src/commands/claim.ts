@@ -183,19 +183,21 @@ export async function handleClaimCompleted(ctx: Context) {
 
     await prisma.$transaction(async (tx) => {
       for (const task of session.tasks) {
-        await tx.task.update({
+        const taskRecord = await tx.task.update({
           where: { id: task.id },
           data: { status: 'COMPLETED', completedAt: new Date() },
         });
 
-        const tweet = await tx.tweet.findUnique({ where: { id: (await tx.task.findUnique({ where: { id: task.id } }))!.tweetId } });
-        if (tweet && tweet.filledSlots < tweet.totalSlots) {
+        await tx.tweet.update({
+          where: { id: taskRecord.tweetId },
+          data: { filledSlots: { increment: 1 } },
+        });
+
+        const updatedTweet = await tx.tweet.findUnique({ where: { id: taskRecord.tweetId } });
+        if (updatedTweet && updatedTweet.filledSlots >= updatedTweet.totalSlots) {
           await tx.tweet.update({
-            where: { id: tweet.id },
-            data: {
-              filledSlots: { increment: 1 },
-              isComplete: tweet.filledSlots + 1 >= tweet.totalSlots,
-            },
+            where: { id: updatedTweet.id },
+            data: { isComplete: true },
           });
         }
       }

@@ -73,6 +73,8 @@ export async function approveCommand(ctx: Context) {
 
 export async function handleApprove(ctx: Context, targetTelegramId: string) {
   try {
+    if (!checkAdmin(ctx)) return;
+
     const user = await prisma.user.findUnique({ where: { telegramId: targetTelegramId } });
     if (!user) {
       await ctx.reply(`User with Telegram ID ${targetTelegramId} not found.`);
@@ -128,6 +130,8 @@ export async function rejectCommand(ctx: Context) {
 
 export async function handleReject(ctx: Context, targetTelegramId: string) {
   try {
+    if (!checkAdmin(ctx)) return;
+
     const user = await prisma.user.findUnique({ where: { telegramId: targetTelegramId } });
     if (!user) {
       await ctx.reply(`User with Telegram ID ${targetTelegramId} not found.`);

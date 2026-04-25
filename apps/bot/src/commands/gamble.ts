@@ -1,6 +1,7 @@
 import { Context, Markup } from 'telegraf';
 import { prisma } from '@reply-society/db';
 import { messages } from '../messages';
+import { config } from '../config';
 import { clearAllFlows } from '../state';
 
 export async function gambleCommand(ctx: Context) {
@@ -77,11 +78,14 @@ export async function handleGamble(ctx: Context, multiplier: number) {
     const won = Math.random() < winChance;
 
     if (won) {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { points: { increment: winAmount }, lastActivity: new Date() },
-      });
-      await ctx.reply(messages.gambleWin(winAmount), Markup.inlineKeyboard([
+      const cappedWin = Math.min(winAmount, config.maxPoints - user.points);
+      if (cappedWin > 0) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { points: { increment: cappedWin }, lastActivity: new Date() },
+        });
+      }
+      await ctx.reply(messages.gambleWin(cappedWin), Markup.inlineKeyboard([
         [Markup.button.callback('🎲 Play Again', 'point_gamble')],
         [Markup.button.callback('🏠 Home', 'go_home')],
       ]));
