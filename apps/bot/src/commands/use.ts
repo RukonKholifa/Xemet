@@ -131,7 +131,10 @@ export async function handleUseTweetUrl(ctx: Context) {
       return;
     }
 
-    await prisma.$transaction(async (tx) => {
+    const success = await prisma.$transaction(async (tx) => {
+      const freshUser = await tx.user.findUnique({ where: { id: user.id } });
+      if (!freshUser || freshUser.points < session.points) return false;
+
       await tx.user.update({
         where: { id: user.id },
         data: {
@@ -148,7 +151,15 @@ export async function handleUseTweetUrl(ctx: Context) {
           filledSlots: 0,
         },
       });
+      return true;
     });
+
+    if (!success) {
+      clearUseSession(telegramId);
+      clearAllFlows(telegramId);
+      await ctx.reply(messages.useInsufficientPoints(user.points));
+      return;
+    }
 
     setRateLimit(telegramId, 'use');
     clearUseSession(telegramId);

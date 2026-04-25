@@ -95,18 +95,31 @@ export async function giftCommand(ctx: Context) {
       return;
     }
 
-    await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
+      const freshSender = await tx.user.findUnique({ where: { id: user.id } });
+      const freshRecipient = await tx.user.findUnique({ where: { id: recipient.id } });
+      if (!freshSender || !freshRecipient) return null;
+
+      const actualCap = Math.min(amount, freshSender.points, getMaxPoints(freshRecipient.telegramId) - freshRecipient.points);
+      if (actualCap <= 0) return null;
+
       await tx.user.update({
         where: { id: user.id },
-        data: { points: { decrement: cappedAmount }, lastActivity: new Date() },
+        data: { points: { decrement: actualCap }, lastActivity: new Date() },
       });
       await tx.user.update({
         where: { id: recipient.id },
-        data: { points: { increment: cappedAmount } },
+        data: { points: { increment: actualCap } },
       });
+      return actualCap;
     });
 
-    await ctx.reply(messages.giftSuccess(cappedAmount, recipientUsername), Markup.inlineKeyboard([
+    if (!result) {
+      await ctx.reply(messages.giftInsufficientPoints);
+      return;
+    }
+
+    await ctx.reply(messages.giftSuccess(result, recipientUsername), Markup.inlineKeyboard([
       [Markup.button.callback('🏠 Home', 'go_home')],
     ]));
 
@@ -114,7 +127,7 @@ export async function giftCommand(ctx: Context) {
       try {
         await botInstance.telegram.sendMessage(
           recipient.telegramId,
-          messages.giftReceived(cappedAmount, ctx.from?.username || 'someone', giftMessage),
+          messages.giftReceived(result, ctx.from?.username || 'someone', giftMessage),
         );
       } catch (err) {
         console.error('Failed to notify gift recipient:', err);
