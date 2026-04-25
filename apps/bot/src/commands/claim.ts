@@ -88,6 +88,11 @@ export async function handleClaimSelect(ctx: Context, amount: number) {
     const telegramId = ctx.from?.id.toString();
     if (!telegramId) return;
 
+    if (getClaimSession(telegramId)) {
+      await ctx.reply(messages.claimAlreadyInProgress);
+      return;
+    }
+
     const user = await getOrRejectUser(ctx);
     if (!user) return;
 
