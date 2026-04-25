@@ -106,7 +106,7 @@ export async function giftCommand(ctx: Context) {
       });
     });
 
-    await ctx.reply(messages.giftSuccess(amount, recipientUsername), Markup.inlineKeyboard([
+    await ctx.reply(messages.giftSuccess(cappedAmount, recipientUsername), Markup.inlineKeyboard([
       [Markup.button.callback('🏠 Home', 'go_home')],
     ]));
 
@@ -114,7 +114,7 @@ export async function giftCommand(ctx: Context) {
       try {
         await botInstance.telegram.sendMessage(
           recipient.telegramId,
-          messages.giftReceived(amount, ctx.from?.username || 'someone', giftMessage),
+          messages.giftReceived(cappedAmount, ctx.from?.username || 'someone', giftMessage),
         );
       } catch (err) {
         console.error('Failed to notify gift recipient:', err);

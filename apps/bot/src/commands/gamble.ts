@@ -78,22 +78,36 @@ export async function handleGamble(ctx: Context, multiplier: number) {
     const won = Math.random() < winChance;
 
     if (won) {
-      const cappedWin = Math.min(winAmount, getMaxPoints(telegramId) - user.points);
-      if (cappedWin > 0) {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { points: { increment: cappedWin }, lastActivity: new Date() },
-        });
-      }
+      const cappedWin = await prisma.$transaction(async (tx) => {
+        const fresh = await tx.user.findUnique({ where: { id: user.id } });
+        if (!fresh || fresh.points < 1) return 0;
+        const cap = Math.min(winAmount, getMaxPoints(telegramId) - fresh.points);
+        if (cap > 0) {
+          await tx.user.update({
+            where: { id: user.id },
+            data: { points: { increment: cap }, lastActivity: new Date() },
+          });
+        }
+        return cap;
+      });
       await ctx.reply(messages.gambleWin(cappedWin), Markup.inlineKeyboard([
         [Markup.button.callback('🎲 Play Again', 'point_gamble')],
         [Markup.button.callback('🏠 Home', 'go_home')],
       ]));
     } else {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { points: { decrement: 1 }, lastActivity: new Date() },
+      const lost = await prisma.$transaction(async (tx) => {
+        const fresh = await tx.user.findUnique({ where: { id: user.id } });
+        if (!fresh || fresh.points < 1) return false;
+        await tx.user.update({
+          where: { id: user.id },
+          data: { points: { decrement: 1 }, lastActivity: new Date() },
+        });
+        return true;
       });
+      if (!lost) {
+        await ctx.reply(messages.gambleNoPoints);
+        return;
+      }
       await ctx.reply(messages.gambleLose, Markup.inlineKeyboard([
         [Markup.button.callback('🎲 Play Again', 'point_gamble')],
         [Markup.button.callback('🏠 Home', 'go_home')],
