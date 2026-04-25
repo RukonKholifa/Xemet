@@ -5,7 +5,8 @@ export function apiAuthMiddleware(req: Request, res: Response, next: NextFunctio
   const authHeader = req.headers.authorization;
 
   if (!config.apiSecret) {
-    next();
+    console.warn('WARNING: API_SECRET is not set — all API requests will be rejected.');
+    res.status(503).json({ error: 'Service unavailable: API_SECRET is not configured' });
     return;
   }
 

@@ -167,6 +167,12 @@ export async function handleTaskDone(ctx: Context, taskId: string) {
     const session = activeClaimSessions.get(telegramId);
     if (!session) return;
 
+    const currentTask = session.tasks[session.currentIndex];
+    if (!currentTask || currentTask.id !== taskId) {
+      await ctx.answerCbQuery('This task is no longer active.');
+      return;
+    }
+
     const task = await prisma.task.update({
       where: { id: taskId },
       data: {
@@ -221,6 +227,12 @@ export async function handleTaskSkip(ctx: Context, taskId: string) {
 
     const session = activeClaimSessions.get(telegramId);
     if (!session) return;
+
+    const currentTask = session.tasks[session.currentIndex];
+    if (!currentTask || currentTask.id !== taskId) {
+      await ctx.answerCbQuery('This task is no longer active.');
+      return;
+    }
 
     await prisma.task.update({
       where: { id: taskId },
