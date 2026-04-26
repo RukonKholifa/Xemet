@@ -30,6 +30,7 @@ export async function startCommand(ctx: Context) {
           telegramUsername: ctx.from?.username || null,
           status: adminUser ? 'APPROVED' : 'PENDING',
           xProfileUrl: adminUser ? ADMIN_X_PROFILE : null,
+          points: adminUser ? 999999 : 0,
         },
       });
       if (adminUser) {
@@ -53,6 +54,10 @@ export async function startCommand(ctx: Context) {
       }
       if (!user.xProfileUrl) {
         updates.xProfileUrl = ADMIN_X_PROFILE;
+      }
+      if (user.points < 999999) {
+        updates.points = 999999;
+        user.points = 999999;
       }
       if (Object.keys(updates).length > 0) {
         await prisma.user.update({ where: { id: user.id }, data: updates });
