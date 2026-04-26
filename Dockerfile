@@ -1,4 +1,5 @@
-FROM node:20-alpine AS base
+FROM node:20-slim AS base
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies
 FROM base AS deps
@@ -20,8 +21,6 @@ RUN npm run build -w apps/bot
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-
-RUN apk add --no-cache openssl libc6-compat
 
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/apps/bot/dist ./apps/bot/dist
