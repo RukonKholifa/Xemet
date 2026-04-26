@@ -24,6 +24,9 @@ export async function adminPanelCommand(ctx: Context) {
   try {
     if (!checkAdmin(ctx)) return;
 
+    const telegramId = ctx.from?.id.toString();
+    if (telegramId) clearAllFlows(telegramId);
+
     const text =
       `🛡️ Admin Control Panel\n\n` +
       `Choose an admin action below:`;
