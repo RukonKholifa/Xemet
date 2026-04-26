@@ -4,14 +4,20 @@ import { messages } from '../messages';
 import { clearAllFlows } from '../state';
 import { isAdmin, ADMIN_X_PROFILE } from '../config';
 
-const homeKeyboard = Markup.inlineKeyboard([
-  [Markup.button.callback('📊 My Status', 'my_status'), Markup.button.callback('🔗 Set X Profile', 'set_profile')],
-  [Markup.button.callback('+ Claim Points', 'claim_points'), Markup.button.callback('— Use Points', 'use_points')],
-  [Markup.button.callback('📈 My Stats', 'my_stats'), Markup.button.callback('🎁 Gift Points', 'gift_points')],
-  [Markup.button.callback('🎲 Point Gamble', 'point_gamble')],
-  [Markup.button.callback('📋 Use History', 'use_history'), Markup.button.callback('📄 Claim History', 'claim_history')],
-  [Markup.button.callback('🔄 Refresh Dashboard', 'refresh_home')],
-]);
+function getHomeKeyboard(isAdminUser: boolean) {
+  const buttons = [
+    [Markup.button.callback('📊 My Status', 'my_status'), Markup.button.callback('🔗 Set X Profile', 'set_profile')],
+    [Markup.button.callback('+ Claim Points', 'claim_points'), Markup.button.callback('— Use Points', 'use_points')],
+    [Markup.button.callback('📈 My Stats', 'my_stats'), Markup.button.callback('🎁 Gift Points', 'gift_points')],
+    [Markup.button.callback('🎲 Point Gamble', 'point_gamble')],
+    [Markup.button.callback('📋 Use History', 'use_history'), Markup.button.callback('📄 Claim History', 'claim_history')],
+    [Markup.button.callback('🔄 Refresh Dashboard', 'refresh_home')],
+  ];
+  if (isAdminUser) {
+    buttons.push([Markup.button.callback('🛡️ Admin Panel', 'admin_panel')]);
+  }
+  return Markup.inlineKeyboard(buttons);
+}
 
 export async function startCommand(ctx: Context) {
   try {
@@ -39,9 +45,9 @@ export async function startCommand(ctx: Context) {
           select: { tweetUrl: true, filledSlots: true, totalSlots: true },
         });
         const text = messages.homeDashboard(user.points, user.status, activeTweets, true);
-        await ctx.reply(text, homeKeyboard);
+        await ctx.reply(text, getHomeKeyboard(true));
       } else {
-        await ctx.reply(messages.welcomeNew, homeKeyboard);
+        await ctx.reply(messages.welcomeNew, getHomeKeyboard(false));
       }
       return;
     }
@@ -88,7 +94,7 @@ export async function startCommand(ctx: Context) {
 
     const adminUser = isAdmin(telegramId);
     const text = messages.homeDashboard(user.points, user.status, activeTweets, adminUser);
-    await ctx.reply(text, homeKeyboard);
+    await ctx.reply(text, getHomeKeyboard(adminUser));
   } catch (error) {
     console.error('Error in start command:', error);
     await ctx.reply(messages.error);

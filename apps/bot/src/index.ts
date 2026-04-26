@@ -13,6 +13,9 @@ import {
   pendingCommand, approveCommand, rejectCommand,
   banCommand, unbanCommand, adminStatsCommand, shamelistCommand,
   addPointsCommand, handleApprove, handleReject, setAdminBotInstance,
+  adminPanelCommand, allUsersCommand,
+  adminPromptApprove, adminPromptReject, adminPromptBan, adminPromptUnban,
+  adminPromptAddPoints, handleAdminTextInput,
 } from './commands';
 import { startCronJobs } from './jobs';
 import { apiAuthMiddleware } from './middleware/apiAuth';
@@ -371,6 +374,48 @@ bot.action(/^admin_reject:(.+)$/, async (ctx) => {
   await handleReject(ctx, ctx.match[1]);
 });
 
+// Admin Panel
+bot.action('admin_panel', async (ctx) => {
+  await ctx.answerCbQuery();
+  await adminPanelCommand(ctx);
+});
+bot.action('ap_pending', async (ctx) => {
+  await ctx.answerCbQuery();
+  await pendingCommand(ctx);
+});
+bot.action('ap_stats', async (ctx) => {
+  await ctx.answerCbQuery();
+  await adminStatsCommand(ctx);
+});
+bot.action('ap_shamelist', async (ctx) => {
+  await ctx.answerCbQuery();
+  await shamelistCommand(ctx);
+});
+bot.action('ap_addpoints', async (ctx) => {
+  await ctx.answerCbQuery();
+  await adminPromptAddPoints(ctx);
+});
+bot.action('ap_approve', async (ctx) => {
+  await ctx.answerCbQuery();
+  await adminPromptApprove(ctx);
+});
+bot.action('ap_reject', async (ctx) => {
+  await ctx.answerCbQuery();
+  await adminPromptReject(ctx);
+});
+bot.action('ap_ban', async (ctx) => {
+  await ctx.answerCbQuery();
+  await adminPromptBan(ctx);
+});
+bot.action('ap_unban', async (ctx) => {
+  await ctx.answerCbQuery();
+  await adminPromptUnban(ctx);
+});
+bot.action('ap_allusers', async (ctx) => {
+  await ctx.answerCbQuery();
+  await allUsersCommand(ctx);
+});
+
 // Cancel flow
 bot.action('cancel_flow', async (ctx) => {
   await ctx.answerCbQuery();
@@ -385,6 +430,12 @@ bot.action('cancel_flow', async (ctx) => {
 bot.on('text', async (ctx) => {
   const telegramId = ctx.from.id.toString();
   const flow = getFlow(telegramId);
+
+  // Admin flows first
+  if (flow?.startsWith('admin_')) {
+    const handled = await handleAdminTextInput(ctx);
+    if (handled) return;
+  }
 
   if (flow === 'profile') {
     await handleProfileUrl(ctx);

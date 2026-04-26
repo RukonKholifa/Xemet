@@ -23,6 +23,18 @@ export async function setProfileCommand(ctx: Context) {
       return;
     }
 
+    if (user?.xProfileUrl) {
+      await ctx.reply(
+        `🔗 Your X Profile\n\n` +
+        `Your linked profile: ${user.xProfileUrl}\n\n` +
+        `⚠️ Your profile is permanently locked and cannot be changed.`,
+        Markup.inlineKeyboard([
+          [Markup.button.callback('🏠 Home', 'go_home')],
+        ]),
+      );
+      return;
+    }
+
     clearAllFlows(telegramId);
     setFlow(telegramId, 'profile');
 
@@ -54,6 +66,16 @@ export async function handleProfileUrl(ctx: Context) {
     clearAllFlows(telegramId);
 
     let user = await prisma.user.findUnique({ where: { telegramId } });
+
+    if (user?.xProfileUrl) {
+      await ctx.reply(
+        `⚠️ Your profile is already set to ${user.xProfileUrl} and cannot be changed.`,
+        Markup.inlineKeyboard([
+          [Markup.button.callback('🏠 Home', 'go_home')],
+        ]),
+      );
+      return;
+    }
 
     if (user) {
       const newStatus = user.status === 'APPROVED' ? 'APPROVED' :
