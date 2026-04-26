@@ -29,4 +29,4 @@ COPY --from=builder /app/package.json ./
 
 EXPOSE 3001
 
-CMD ["node", "apps/bot/dist/index.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy --schema=packages/db/prisma/schema.prisma && node apps/bot/dist/index.js"]

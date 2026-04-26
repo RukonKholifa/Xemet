@@ -1,35 +1,50 @@
 services:
   - type: web
-    name: reply-society-bot
+    name: engageswap-bot
     runtime: docker
     dockerfilePath: ./Dockerfile
+    plan: free
     envVars:
       - key: BOT_TOKEN
         sync: false
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: engageswap-db
+          property: connectionString
       - key: ADMIN_TELEGRAM_IDS
         sync: false
+      - key: API_SECRET
+        generateValue: true
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: NEXTAUTH_SECRET
+        generateValue: true
+      - key: TELEGRAM_BOT_USERNAME
+        value: EngageSwapXBot
       - key: NODE_ENV
         value: production
     healthCheckPath: /health
-    buildCommand: ""
-    startCommand: "npx prisma migrate deploy --schema=packages/db/prisma/schema.prisma && node apps/bot/dist/index.js"
 
   - type: web
-    name: reply-society-web
+    name: engageswap-web
     runtime: docker
     dockerfilePath: ./Dockerfile.web
+    plan: free
     envVars:
       - key: NEXT_PUBLIC_API_URL
         sync: false
       - key: NEXT_PUBLIC_BOT_USERNAME
         value: EngageSwapXBot
+      - key: API_SECRET
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: NEXTAUTH_SECRET
         sync: false
       - key: NODE_ENV
         value: production
 
 databases:
-  - name: reply-society-db
-    databaseName: reply_society_bot
+  - name: engageswap-db
+    databaseName: engageswap
     plan: free
