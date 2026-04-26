@@ -1,0 +1,26 @@
+{
+  "name": "reply-society-bot",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:bot": "npm run dev -w apps/bot",
+    "dev:web": "npm run dev -w apps/web",
+    "build:bot": "npm run build -w apps/bot",
+    "build:web": "npm run build -w apps/web",
+    "build": "npm run build -w packages/db && npm run build:bot && npm run build:web",
+    "db:generate": "npm run generate -w packages/db",
+    "db:migrate": "npm run migrate -w packages/db",
+    "db:seed": "npm run seed -w packages/db",
+    "lint": "npm run lint -w apps/bot && npm run lint -w apps/web",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.2.5",
+    "typescript": "^5.4.5"
+  }
+}
