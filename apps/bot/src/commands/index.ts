@@ -10,4 +10,7 @@ export {
   pendingCommand, approveCommand, rejectCommand,
   banCommand, unbanCommand, adminStatsCommand, shamelistCommand,
   addPointsCommand, handleApprove, handleReject, setAdminBotInstance,
+  adminPanelCommand, allUsersCommand,
+  adminPromptApprove, adminPromptReject, adminPromptBan, adminPromptUnban,
+  adminPromptAddPoints, handleAdminTextInput,
 } from './admin';

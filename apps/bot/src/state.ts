@@ -1,4 +1,4 @@
-type FlowType = 'profile' | 'claim_count' | 'claim_session' | 'use_count' | 'use_tweet';
+type FlowType = 'profile' | 'claim_count' | 'claim_session' | 'use_count' | 'use_tweet' | 'admin_approve' | 'admin_reject' | 'admin_ban' | 'admin_unban' | 'admin_addpoints';
 
 interface ClaimSession {
   tasks: Array<{ id: string; tweetUrl: string }>;
