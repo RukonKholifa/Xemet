@@ -15,6 +15,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate --schema=packages/db/prisma/schema.prisma
+RUN npm run build -w packages/db
 RUN npm run build -w apps/bot
 
 # Production
